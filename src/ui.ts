@@ -18,6 +18,20 @@ export const symbols = {
   end: '└─',
 };
 
+/** A solid background chip, e.g. ` WARNING ` on yellow. Falls back to plain text without color. */
+export function badge(label: string, background: (text: string) => string): string {
+  if (!pc.isColorSupported) return label;
+  return background(pc.bold(pc.black(` ${label} `)));
+}
+
+export function warningBadge(): string {
+  return badge('WARNING', pc.bgYellow);
+}
+
+export function noticeBadge(): string {
+  return badge('NOTICE', pc.bgCyan);
+}
+
 export function contextFragment(state: SessionState): string {
   const parts: string[] = [];
   if (state.server) parts.push(pc.cyan(state.server.name));

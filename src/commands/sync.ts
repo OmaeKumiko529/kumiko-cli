@@ -39,11 +39,12 @@ import {
   validateProjectName,
 } from '../remote.js';
 import type { ProjectConfig, SyncRecord } from '../types.js';
+import { noticeBadge } from '../ui.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 /** Shown when syncing a parent branch that has children. */
 const SYNC_CHILDREN_NOTICE =
-  'NOTICE By default running sync on a parent branch will cause the same sync content to be pushed to its child branches. To change this setting, use the kumiko setting.';
+  'By default running sync on a parent branch will cause the same sync content to be pushed to its child branches. To change this setting, use the kumiko setting.';
 
 interface SyncOptions {
   message?: string;
@@ -188,7 +189,7 @@ async function syncFlow(ctx: CommandContext, server: SelectedServer, options: Sy
   const children = childBranches(projectConfig, ref);
   const propagate = children.length > 0 && syncChildrenEnabled(projectConfig);
   if (propagate) {
-    repl.say(SYNC_CHILDREN_NOTICE);
+    repl.say(`${noticeBadge()} ${SYNC_CHILDREN_NOTICE}`);
     const answer = (await repl.ask('Input branch name to sync: ')).trim();
     if (answer !== ref) {
       repl.say('cancelled.');
