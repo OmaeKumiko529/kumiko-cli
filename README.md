@@ -29,9 +29,17 @@ M2：build
   - `-artifacts` 用 SFTP 把远端产物拉回本地 `*@/<artifacts>`
   - 失败时报告退出码；构建产物是 untracked，不算远端工作树 dirty
 
+M3：pull
+
+- `pull [branch] [-server <name>] [--force]`
+  - 服务器工作树上的 tracked 改动先提交（`kumiko: server changes <time>`）并 push 到裸库
+  - 本地 fetch + fast-forward；`--force` 手输分支名确认后 `reset --hard` 覆盖本地
+  - Done 文案 `Done! Pull <n> file(s) from <project>:/<branch>.`
+  - 本地有未提交改动时非 `--force` 拒绝；服务器工作树在别的分支时拒绝
+
 远端布局（服务器）：`~/kumiko/repos/<project>.git`（裸库）+ `~/kumiko/projects/<project>`（工作树）。
 
-之后按 request 的交互逻辑推进：`pull` → `new branch` → `dev` 热更新。
+之后按 request 的交互逻辑推进：`new branch` → `dev` 热更新。
 
 ## 开发
 
@@ -49,9 +57,10 @@ npm run build
 node dev/smoke.mjs       # M0：server create / connect / switch / status
 node dev/smoke-sync.mjs  # M1：sync create 向导 / push / force 确认 / logs
 node dev/smoke-build.mjs # M2：build / -artifacts 拉回
+node dev/smoke-pull.mjs  # M3：拉回服务器改动 / --force 覆盖本地
 ```
 
-三个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
+四个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
 
 ## 配置
 

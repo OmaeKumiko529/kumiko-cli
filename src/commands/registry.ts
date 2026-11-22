@@ -2,6 +2,7 @@ import type { Repl } from '../repl.js';
 import type { GlobalConfig } from '../types.js';
 import { buildCommand } from './build.js';
 import { logsCommand } from './logs.js';
+import { pullCommand } from './pull.js';
 import { exitCommand, helpCommand, statusCommand } from './misc.js';
 import { serverCommand } from './server.js';
 import { connectCommand, switchCommand } from './session.js';
@@ -27,6 +28,7 @@ export const commands: CommandDefinition[] = [
   switchCommand,
   syncCommand,
   buildCommand,
+  pullCommand,
   logsCommand,
   statusCommand,
   helpCommand,

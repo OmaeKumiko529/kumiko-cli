@@ -63,12 +63,13 @@ export const helpCommand: CommandDefinition = {
       '  switch <project>[:branch]                     switch project workspace',
       '  sync [commit] [-server <name>] [--force]      commit and push to the server',
       '  build [-server <name>] [-artifacts]           build on the server (pull dist with -artifacts)',
+      '  pull [branch] [-server <name>] [--force]      pull server-side changes back home',
       '  logs [check <sha>]                            sync history / changed files',
       '  status                                        current context and state',
       '  help                                          this list',
       '  exit                                          quit',
       '',
-      'planned (request.md): pull / new branch / dev',
+      'planned (request.md): new branch / dev',
     ]);
   },
 };

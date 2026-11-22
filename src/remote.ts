@@ -76,3 +76,29 @@ export async function updateRemoteWorktree(entry: ServerEntry, projectName: stri
     `git -C ${work} fetch --prune origin && git -C ${work} checkout -q -f -B ${shQuote(branch)} origin/${shQuote(branch)}`,
   );
 }
+
+export async function remoteWorktreeBranch(entry: ServerEntry, projectName: string): Promise<string | undefined> {
+  validateProjectName(projectName);
+  const work = `"$HOME/kumiko/projects/${projectName}"`;
+  const result = await sshExec(entry, `git -C ${work} rev-parse --abbrev-ref HEAD`);
+  const branch = result.stdout.trim();
+  return branch && branch !== 'HEAD' ? branch : undefined;
+}
+
+/**
+ * Commit tracked changes made on the server, then push them to the bare repo so
+ * the local project can fetch them. Untracked files (build output like `dist/`)
+ * are intentionally left alone.
+ */
+export async function serverCommitAndPush(entry: ServerEntry, projectName: string, branch: string): Promise<string> {
+  validateProjectName(projectName);
+  const work = `"$HOME/kumiko/projects/${projectName}"`;
+  const message = `kumiko: server changes ${new Date().toISOString()}`;
+  const result = await sshExec(
+    entry,
+    `cd ${work} && if [ -n "$(git status --porcelain --untracked-files=no)" ]; then git add -u && git -c user.name=kumiko -c user.email=kumiko@localhost commit -q -m ${shQuote(message)}; fi && git push -q origin ${shQuote(branch)} && git rev-parse HEAD`,
+  );
+  const sha = result.stdout.trim();
+  if (!sha) throw new Error('the server did not report a commit for the pull');
+  return sha;
+}

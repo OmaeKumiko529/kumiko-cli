@@ -79,3 +79,48 @@ export function gitPush(dir: string, options: PushOptions): void {
   args.push(options.url, `${options.branch}:${options.branch}`);
   runGit(dir, args, options.sshCommand ? { env: { GIT_SSH_COMMAND: options.sshCommand } } : {});
 }
+
+export interface FetchOptions {
+  url: string;
+  branch: string;
+  sshCommand?: string;
+}
+
+export function gitFetch(dir: string, options: FetchOptions): string {
+  runGit(dir, ['fetch', '--no-tags', options.url, options.branch], options.sshCommand ? { env: { GIT_SSH_COMMAND: options.sshCommand } } : {});
+  return runGit(dir, ['rev-parse', 'FETCH_HEAD']);
+}
+
+export function gitResolveRef(dir: string, ref: string): string | undefined {
+  try {
+    return runGit(dir, ['rev-parse', ref]);
+  } catch {
+    return undefined;
+  }
+}
+
+export function gitTrackedDirtyCount(dir: string): number | undefined {
+  try {
+    const out = runGit(dir, ['status', '--porcelain', '--untracked-files=no']);
+    return out.split('\n').filter((line) => line.trim().length > 0).length;
+  } catch {
+    return undefined;
+  }
+}
+
+export function gitDiffFileNames(dir: string, from: string, to: string): string[] {
+  try {
+    const out = runGit(dir, ['diff', '--name-only', '--no-renames', from, to]);
+    return out.split('\n').filter((line) => line.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+export function gitMergeFfOnly(dir: string, ref: string): void {
+  runGit(dir, ['merge', '--ff-only', ref]);
+}
+
+export function gitResetHard(dir: string, ref: string): void {
+  runGit(dir, ['reset', '--hard', ref]);
+}
