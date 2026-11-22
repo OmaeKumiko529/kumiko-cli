@@ -18,6 +18,14 @@ export interface ProjectConfig {
   test?: { command: string };
 }
 
+export interface SyncRecord {
+  message: string;
+  sha: string;
+  branch: string;
+  time: string;
+  files: number;
+}
+
 export interface LocalProject {
   name: string;
   path: string;

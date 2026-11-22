@@ -1,14 +1,20 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { parse } from 'smol-toml';
-import type { GlobalConfig, ProjectConfig, ServerEntry } from './types.js';
+import type { GlobalConfig, ProjectConfig, ServerEntry, SyncRecord } from './types.js';
 
 export const KUMIKO_HOME = path.join(homedir(), '.kumiko');
 export const GLOBAL_CONFIG_PATH = path.join(KUMIKO_HOME, 'config.toml');
+export const SOLUTIONS_DIR = path.join(KUMIKO_HOME, 'sol');
+export const HISTORY_DIR = path.join(KUMIKO_HOME, 'history');
 
 function ensureKumikoHome(): void {
   if (!existsSync(KUMIKO_HOME)) mkdirSync(KUMIKO_HOME, { recursive: true });
+}
+
+function safeProjectName(name: string): string {
+  return name.replace(/[^A-Za-z0-9._-]/g, '_');
 }
 
 function tomlString(value: string): string {
@@ -76,4 +82,68 @@ export function loadProjectConfig(dir: string): ProjectConfig | null {
       : undefined,
     test: test?.command ? { command: String(test.command) } : undefined,
   };
+}
+
+export function saveProjectConfig(dir: string, config: ProjectConfig): void {
+  const lines = ['# KUMIKO CLI toolchain record. Commit this file and sync it with the project.', '', '[project]', `name = ${tomlString(config.project.name)}`];
+  if (config.solution?.name) lines.push('', '[solution]', `name = ${tomlString(config.solution.name)}`);
+  if (config.run?.command) lines.push('', '[run]', `command = ${tomlString(config.run.command)}`);
+  if (config.build?.command) {
+    lines.push('', '[build]', `command = ${tomlString(config.build.command)}`);
+    if (config.build.artifacts) lines.push(`artifacts = ${tomlString(config.build.artifacts)}`);
+  }
+  if (config.test?.command) lines.push('', '[test]', `command = ${tomlString(config.test.command)}`);
+  writeFileSync(path.join(dir, '.kumiko.toml'), lines.join('\n') + '\n', 'utf8');
+}
+
+/** Solutions are reusable toolchain presets stored in ~/.kumiko/sol/<name>.sol (TOML without [project]). */
+export function listSolutions(): string[] {
+  if (!existsSync(SOLUTIONS_DIR)) return [];
+  return readdirSync(SOLUTIONS_DIR)
+    .filter((file) => file.endsWith('.sol'))
+    .map((file) => file.slice(0, -'.sol'.length))
+    .sort();
+}
+
+export function loadSolution(name: string): ProjectConfig | null {
+  const file = path.join(SOLUTIONS_DIR, `${name}.sol`);
+  if (!existsSync(file)) return null;
+  const data = parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+  const run = data.run as Record<string, unknown> | undefined;
+  const build = data.build as Record<string, unknown> | undefined;
+  const test = data.test as Record<string, unknown> | undefined;
+  return {
+    project: { name: name },
+    solution: { name },
+    run: run?.command ? { command: String(run.command) } : undefined,
+    build: build?.command
+      ? { command: String(build.command), artifacts: build.artifacts ? String(build.artifacts) : undefined }
+      : undefined,
+    test: test?.command ? { command: String(test.command) } : undefined,
+  };
+}
+
+function historyFile(projectName: string): string {
+  ensureKumikoHome();
+  if (!existsSync(HISTORY_DIR)) mkdirSync(HISTORY_DIR, { recursive: true });
+  return path.join(HISTORY_DIR, `${safeProjectName(projectName)}.jsonl`);
+}
+
+export function loadHistory(projectName: string): SyncRecord[] {
+  const file = historyFile(projectName);
+  if (!existsSync(file)) return [];
+  const records: SyncRecord[] = [];
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      records.push(JSON.parse(line) as SyncRecord);
+    } catch {
+      // ignore malformed history line
+    }
+  }
+  return records;
+}
+
+export function appendHistory(projectName: string, record: SyncRecord): void {
+  appendFileSync(historyFile(projectName), JSON.stringify(record) + '\n', 'utf8');
 }

@@ -61,11 +61,13 @@ export const helpCommand: CommandDefinition = {
       '  server create | list | test | remove <name>   manage servers',
       '  connect <server>                              connect to a server',
       '  switch <project>[:branch]                     switch project workspace',
+      '  sync [commit] [-server <name>] [--force]      commit and push to the server',
+      '  logs [check <sha>]                            sync history / changed files',
       '  status                                        current context and state',
       '  help                                          this list',
       '  exit                                          quit',
       '',
-      'planned (request.md): sync / build / pull / logs / new branch',
+      'planned (request.md): build / pull / new branch / dev',
     ]);
   },
 };
