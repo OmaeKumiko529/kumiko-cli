@@ -153,7 +153,8 @@ export function loadKnownProjects(): Record<string, string> {
     const data = JSON.parse(readFileSync(PROJECTS_PATH, 'utf8')) as Record<string, unknown>;
     const projects: Record<string, string> = {};
     for (const [name, dir] of Object.entries(data)) {
-      if (typeof dir === 'string' && dir.trim()) projects[name] = dir;
+      // Forget entries whose directory is gone (deleted test projects, moved repos).
+      if (typeof dir === 'string' && dir.trim() && existsSync(dir)) projects[name] = dir;
     }
     return projects;
   } catch {

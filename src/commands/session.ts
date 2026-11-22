@@ -2,7 +2,7 @@ import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { loadKnownProjects, loadProjectConfig, rememberProject } from '../config.js';
 import { branchDisplay, branchPathFor, branchRef, normalizeBranchPath } from '../context.js';
-import { gitBranchExists, gitCheckout, gitCurrentBranch, gitDirtyCount } from '../git.js';
+import { gitBranchExists, gitCheckout, gitCurrentBranch, gitDirtyFiles } from '../git.js';
 import { sshExec } from '../ssh.js';
 import type { LocalProject, ProjectConfig } from '../types.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
@@ -26,7 +26,6 @@ function isDirectory(target: string): boolean {
  * Resolve the `switch` project argument. Accepted forms:
  *   switch <absolute-or-relative-path>[:branch]
  *   switch <project name>[:branch]       (a name switched to before, or the current project)
- *   switch :<branch>                     (branch of the current project)
  */
 function resolveProjectTarget(rawProject: string, current: LocalProject | undefined): string | null {
   if (!rawProject) return current ? current.path : null;
@@ -48,7 +47,10 @@ function resolveProjectTarget(rawProject: string, current: LocalProject | undefi
 
 /** Display paths of branches this project knows about, for better error hints. */
 function knownBranchPaths(projectConfig: ProjectConfig | null, dir: string): string[] {
-  if (!projectConfig) return [];
+  if (!projectConfig) {
+    const current = gitCurrentBranch(dir);
+    return current ? [branchDisplay(current)] : [];
+  }
   const paths = new Set<string>();
   const current = gitCurrentBranch(dir);
   if (current) paths.add(branchPathFor(projectConfig, current));
@@ -56,6 +58,49 @@ function knownBranchPaths(projectConfig: ProjectConfig | null, dir: string): str
     paths.add(branchPathFor(projectConfig, child));
   }
   return [...paths].map(branchDisplay);
+}
+
+/** Cheap "did you mean" for project names: Levenshtein distance of at most 2. */
+function suggestName(input: string, candidates: string[]): string | undefined {
+  const distance = (a: string, b: string): number => {
+    const rows: number[] = Array.from({ length: b.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= a.length; i += 1) {
+      let previous = rows[0] as number;
+      rows[0] = i;
+      for (let j = 1; j <= b.length; j += 1) {
+        const saved = rows[j] as number;
+        rows[j] = Math.min(
+          (rows[j] as number) + 1,
+          (rows[j - 1] as number) + 1,
+          previous + (a[i - 1] === b[j - 1] ? 0 : 1),
+        );
+        previous = saved;
+      }
+    }
+    return rows[b.length] as number;
+  };
+  const lower = input.toLowerCase();
+  let best: string | undefined;
+  let bestDistance = 3;
+  for (const candidate of candidates) {
+    const d = distance(lower, candidate.toLowerCase());
+    if (d < bestDistance) {
+      best = candidate;
+      bestDistance = d;
+    }
+  }
+  return best;
+}
+
+/** A branch path that exists locally, if any: `/main/test`, `main/test` or `test`. */
+function resolveBranchInProject(dir: string, projectConfig: ProjectConfig | null, branchPath: string): string | null {
+  const normalized = normalizeBranchPath(branchPath);
+  if (!normalized) return null;
+  const ref = branchRef(normalized);
+  if (!gitBranchExists(dir, ref)) return null;
+  const displayPath = projectConfig ? branchPathFor(projectConfig, ref) : normalized;
+  if (normalized.includes('/') && displayPath !== normalized) return null;
+  return displayPath;
 }
 
 async function remoteProjectExists(entry: Parameters<typeof sshExec>[0], projectName: string): Promise<boolean> {
@@ -89,8 +134,8 @@ export const connectCommand: CommandDefinition = {
 
 export const switchCommand: CommandDefinition = {
   name: 'switch',
-  usage: 'switch <project|path>[:branch] [--carry]',
-  summary: 'switch the current project workspace',
+  usage: 'switch <project|path|branch>[:branch] [--carry]',
+  summary: 'switch the current project workspace or branch',
   promptPrefix: 'KUMIKOCLI',
   async run(ctx: CommandContext): Promise<void> {
     const positional: string[] = [];
@@ -102,23 +147,64 @@ export const switchCommand: CommandDefinition = {
     }
     const raw = positional[0];
     if (!raw) {
-      ctx.repl.error('usage: switch <project|path>[:branch] [--carry]');
+      ctx.repl.error('usage: switch <project|path|branch>[:branch] [--carry]');
       return;
     }
 
-    const { project: rawProject, branch: rawBranch } = splitProjectArg(raw);
-    const normalizedBranch = rawBranch === undefined ? undefined : normalizeBranchPath(rawBranch);
-    const branchArg = normalizedBranch && normalizedBranch.length > 0 ? normalizedBranch : undefined;
+    const current = ctx.repl.state.project;
+    const branchOnly = /^[:/\\]/.test(raw);
+    const parsed = branchOnly ? { project: '', branch: raw.replace(/^[:/\\]+/, '') } : splitProjectArg(raw);
+    const normalizedBranch = parsed.branch === undefined ? undefined : normalizeBranchPath(parsed.branch);
+    let branchArg = normalizedBranch && normalizedBranch.length > 0 ? normalizedBranch : undefined;
 
-    const target = resolveProjectTarget(rawProject, ctx.repl.state.project);
+    // Resolve the project. A bare word (`switch test`) prefers a local branch of
+    // the current project, then a known project name, then a path.
+    const isBareWord =
+      !branchOnly &&
+      parsed.project !== '' &&
+      !/[\\/]/.test(parsed.project) &&
+      parsed.project !== '.' &&
+      parsed.project !== '..';
+    let target: string | null = null;
+    if (branchOnly) {
+      target = current ? current.path : null;
+    } else if (isBareWord) {
+      if (current) {
+        const displayPath = resolveBranchInProject(current.path, loadProjectConfig(current.path), parsed.project);
+        if (displayPath && !branchArg) {
+          target = current.path;
+          branchArg = displayPath;
+        }
+        if (!target && (parsed.project === current.name || parsed.project === path.basename(current.path))) {
+          target = current.path;
+        }
+      }
+      if (!target) {
+        const knownDir = loadKnownProjects()[parsed.project];
+        if (knownDir && isDirectory(knownDir)) target = knownDir;
+      }
+    }
+    if (!target) target = resolveProjectTarget(parsed.project, current);
+
     if (!target) {
-      if (!rawProject) {
-        ctx.repl.error('no project is selected. usage: switch <project|path>[:branch] [--carry]');
+      if (!parsed.project) {
+        ctx.repl.error('no project is selected. usage: switch <project|path|branch> [--carry]');
         return;
       }
       const known = Object.keys(loadKnownProjects());
-      const hint = known.length > 0 ? ` (known projects: ${known.join(', ')})` : '';
-      ctx.repl.error(`project '${rawProject}' not found${hint}. pass a project path or a name you used before.`);
+      const parts = [`project '${parsed.project}' not found.`];
+      if (known.length > 0) parts.push(`known projects: ${known.join(', ')}.`);
+      if (current) {
+        const branches = knownBranchPaths(loadProjectConfig(current.path), current.path);
+        if (branches.length > 0) parts.push(`current branches: ${branches.join(', ')}.`);
+      }
+      const guess = suggestName(parsed.project, [...known, ...(current ? [current.name] : [])]);
+      parts.push(
+        guess
+          ? `did you mean '${guess}'? or pass a project path / branch path.`
+          : 'pass a project path, a known project name, or a branch path.',
+      );
+      ctx.repl.error(parts.join(' '));
       return;
     }
 
@@ -144,12 +230,27 @@ export const switchCommand: CommandDefinition = {
       displayPath = projectConfig ? fromConfig : branchArg;
       const currentRef = gitCurrentBranch(target);
       if (ref !== currentRef) {
-        const dirty = gitDirtyCount(target) ?? 0;
-        if (dirty > 0 && !carry) {
-          ctx.repl.error('the workspace has uncommitted changes. re-run with --carry to take them to the branch.');
+        const dirtyFiles = gitDirtyFiles(target) ?? [];
+        // .kumiko.toml 是 CLI 维护的项目元数据（例如 branch new 刚写入 [branches]），
+        // 它没有丢失风险时不该阻塞切换；被 git 拦下时会走下面的 checkout 错误提示。
+        const metadataOnly = dirtyFiles.length > 0 && dirtyFiles.every((file) => file === '.kumiko.toml');
+        if (dirtyFiles.length > 0 && !carry && !metadataOnly) {
+          ctx.repl.error(
+            `the workspace has uncommitted changes. re-run with \`switch ${raw} --carry\` to take them to the branch.`,
+          );
           return;
         }
-        gitCheckout(target, ref);
+        try {
+          gitCheckout(target, ref);
+        } catch (err) {
+          const stderr = (err as { stderr?: Buffer }).stderr?.toString().trim();
+          const lines = stderr?.split('\n').map((line) => line.trim()).filter((line) => line.length > 0) ?? [];
+          const detail = lines.length > 0 ? lines.slice(0, 3).join(' ') : (err as Error).message;
+          ctx.repl.error(
+            `cannot switch to '${ref}': ${detail}. commit or stash the local changes in ${target} first, then retry.`,
+          );
+          return;
+        }
       }
     } else {
       const ref = gitCurrentBranch(target) ?? 'main';

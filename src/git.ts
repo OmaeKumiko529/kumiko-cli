@@ -39,6 +39,22 @@ export function gitDirtyCount(dir: string): number | undefined {
   }
 }
 
+export function gitDirtyFiles(dir: string): string[] | undefined {
+  try {
+    const out = runGit(dir, ['status', '--porcelain']);
+    return out
+      .split('\n')
+      .filter((line) => line.trim().length > 0)
+      .map((line) => {
+        const file = line.replace(/^[ MADRCU?!]{1,2}\s+/, '').trim();
+        const arrow = file.indexOf(' -> ');
+        return arrow >= 0 ? file.slice(arrow + 4) : file;
+      });
+  } catch {
+    return undefined;
+  }
+}
+
 export function gitInitMain(dir: string): void {
   execFileSync('git', ['init', '-b', 'main', dir], { stdio: ['ignore', 'pipe', 'pipe'] });
 }
