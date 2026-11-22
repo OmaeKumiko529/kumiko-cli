@@ -16,7 +16,7 @@ M1：sync + logs
 
 - `sync [commit] [-server <name>] [--force]`
   - 未配置项目自动进入 create 向导：solution / run / build → 写 `.kumiko.toml` → `git init` main → 远端裸库 + 工作树 → `Initial commit`
-  - 普通 sync：提交 → push → 更新远端工作树，Done 文案与 request.md 一致
+  - 普通 sync：提交 → push → 更新远端工作树，完成文案与 request.md 一致
   - `--force` 需要手输分支名最后一段确认（`main/dev` 输 `dev`）
 - `logs`：本地同步历史（`~/.kumiko/history/<project>.jsonl`）
 - `logs check <sha>`：单次同步的改动文件树
@@ -25,7 +25,7 @@ M2：build
 
 - `build [-server <name>] [-artifacts]`
   - 读本地 `.kumiko.toml` 的 `[build].command`，在远端工作树上执行（输出流式回显）
-  - 默认 Done 文案指向远端产物 `@/<artifacts>`（`[build].artifacts` 默认 `dist`）
+  - 默认的完成文案指向远端产物 `@/<artifacts>`（`[build].artifacts` 默认 `dist`）
   - `-artifacts` 用 SFTP 把远端产物拉回本地 `*@/<artifacts>`
   - 失败时报告退出码；构建产物是 untracked，不算远端工作树 dirty
 
@@ -34,15 +34,15 @@ M3：pull
 - `pull [branch] [-server <name>] [--force]`
   - 服务器工作树上的 tracked 改动先提交（`kumiko: server changes <time>`）并 push 到裸库
   - 本地 fetch + fast-forward；`--force` 手输分支名确认后 `reset --hard` 覆盖本地
-  - Done 文案 `Done! Pull <n> file(s) from <project>:/<branch>.`
+  - 完成文案 `DONE Pull <n> file(s) from <project>:/<branch>.`
   - 本地有未提交改动时非 `--force` 拒绝；服务器工作树在别的分支时拒绝
 
 M4：分支树（显示路径）
 
 - `.kumiko.toml` 增加 `[branches]`（子分支 ref = 父分支 ref）与 `[branch] syncChildren`
-- `branch new /<parent>/<child>`：从当前父分支创建本地分支与远端分支、记录 `[branches]`，输出 `Done! New branch /main/dev`
+- `branch new /<parent>/<child>`：从当前父分支创建本地分支与远端分支、记录 `[branches]`，输出 `DONE New branch /main/dev`
 - `switch <project|path|branch>[:branch] [--carry]`：裸词优先匹配当前项目分支（如 `switch test` 切到当前项目的 `/main/test`），其次当前项目名，再次以前切换过的项目名（记在 `~/.kumiko/projects.json`，已删除的目录会自动忽略）；也可以写绝对/相对路径；`switch :/main/test` 或 `switch /main/test` 表示只切当前项目的分支；分支路径接受 `\main\dev` 这类反斜杠写法；`--carry` 允许携带未提交改动
-- `branch merge <child> to <parent>`：服务器端把子分支合并进父分支并推回，本地父分支 fast-forward；Done 使用 `BRANCH` 前缀
+- `branch merge <child> to <parent>`：服务器端把子分支合并进父分支并推回，本地父分支 fast-forward；完成标签使用 `BRANCH` 前缀
 - 父分支 `sync`：有子分支且 `syncChildren` 开启时，先打印 NOTICE 并输入父分支名确认，再把父 commit 合并进子分支（保留子提交，冲突中止）
 - `setting` / `setting syncChildren on|off`：查看 / 写入项目设置
 - 显示路径与 git ref：`main/dev` 是显示路径，底层 git ref 是 `dev`，父级关系存在 `.kumiko.toml [branches]`
@@ -60,6 +60,11 @@ M5：run（远程运行 + 端口转发）
 远端布局（服务器）：`~/kumiko/repos/<project>.git`（裸库）+ `~/kumiko/projects/<project>`（工作树）+ `~/kumiko/logs/<project>.run.log`。
 
 request.md 里的命令到这里已全部实现：sync / build / pull / run / branch new / branch merge / setting / logs / server / connect / switch / status。
+
+输出约定
+
+- 完成：绿底 ` DONE `；错误：红底 ` ERROR `；`WARNING` 黄底、`NOTICE` 青底（纯色底板标签）
+- 不支持颜色时（管道、`NO_COLOR=1`、非 TTY）自动退化为纯文字标签，冒烟测试断言按纯文字写
 
 ## 开发
 

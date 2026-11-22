@@ -6,6 +6,7 @@ import { branchPathFor, branchRef, requireProject, resolveServer } from '../cont
 import { gitCurrentBranch } from '../git.js';
 import { remoteHome, remoteWorktreeState, shQuote, updateRemoteWorktree } from '../remote.js';
 import { connectSsh, openExec, sshExec } from '../ssh.js';
+import { successBadge } from '../ui.js';
 import type { Repl } from '../repl.js';
 import type { ServerEntry } from '../types.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
@@ -261,7 +262,7 @@ export async function stopActiveRun(repl: Repl | null, silent = false): Promise<
   } catch {
     // best effort: the server may be unreachable
   }
-  if (!silent) repl?.say(`Done! run stopped for ${session.projectName}:/${session.displayPath}.`);
+  if (!silent) repl?.say(`${successBadge()} run stopped for ${session.projectName}:/${session.displayPath}.`);
 }
 
 export const runCommand: CommandDefinition = {

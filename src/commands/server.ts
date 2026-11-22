@@ -1,7 +1,7 @@
 import { saveGlobalConfig } from '../config.js';
 import { checkServer } from '../ssh.js';
 import type { ServerEntry } from '../types.js';
-import { symbols } from '../ui.js';
+import { successBadge, symbols, warningBadge } from '../ui.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 function parseSsh(input: string): { user: string; host: string; port: number } {
@@ -40,11 +40,11 @@ async function createServer(ctx: CommandContext): Promise<void> {
     return;
   }
   if (check.reasons.length > 0) {
-    repl.say(`warning: ${check.reasons.join(' ')}`);
+    repl.say(`${warningBadge()} ${check.reasons.join(' ')}`);
   }
   ctx.config.servers[name] = entry;
   saveGlobalConfig(ctx.config);
-  repl.say('Done! use `server list` to check your new server.');
+  repl.say(`${successBadge()} use \`server list\` to check your new server.`);
 }
 
 function listServers(ctx: CommandContext): void {

@@ -1,5 +1,6 @@
 import { loadProjectConfig, saveProjectConfig } from '../config.js';
 import { requireProject } from '../context.js';
+import { successBadge } from '../ui.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 function parseToggle(value: string | undefined): boolean | undefined {
@@ -44,6 +45,6 @@ export const settingCommand: CommandDefinition = {
       return;
     }
     saveProjectConfig(project.path, { ...config, branch: { ...(config.branch ?? {}), syncChildren: parsed } });
-    ctx.repl.say(`Done! syncChildren is now ${parsed ? 'on' : 'off'}.`);
+    ctx.repl.say(`${successBadge()} syncChildren is now ${parsed ? 'on' : 'off'}.`);
   },
 };

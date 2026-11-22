@@ -32,6 +32,14 @@ export function noticeBadge(): string {
   return badge('NOTICE', pc.bgCyan);
 }
 
+export function successBadge(): string {
+  return badge('DONE', pc.bgGreen);
+}
+
+export function errorBadge(): string {
+  return badge('ERROR', pc.bgRed);
+}
+
 export function contextFragment(state: SessionState): string {
   const parts: string[] = [];
   if (state.server) parts.push(pc.cyan(state.server.name));

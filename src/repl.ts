@@ -1,9 +1,8 @@
 import { createInterface, type Interface } from 'node:readline';
-import pc from 'picocolors';
 import { hasActiveRun, stopActiveRun } from './commands/run.js';
 import { findCommand } from './commands/registry.js';
 import type { GlobalConfig, SessionState } from './types.js';
-import { promptFor, visibleLength } from './ui.js';
+import { errorBadge, promptFor, visibleLength } from './ui.js';
 
 export class CommandCancelled extends Error {}
 
@@ -49,7 +48,7 @@ export class Repl {
   }
 
   error(message: string): void {
-    this.say(pc.red('error: ') + message);
+    this.say(`${errorBadge()} ${message}`);
   }
 
   setCommandPrefix(prefix: string | null): void {

@@ -18,6 +18,7 @@ import {
   serverMergeBranch,
   sshCommandFor,
 } from '../remote.js';
+import { successBadge } from '../ui.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 function splitPath(value: string): string[] {
@@ -85,7 +86,7 @@ async function branchNew(ctx: CommandContext, args: string[]): Promise<void> {
   });
 
   ctx.repl.setCommandPrefix('KUMIKOCLI');
-  ctx.repl.say(`Done! New branch ${branchDisplay(displayOf(segments))}`);
+  ctx.repl.say(`${successBadge()} New branch ${branchDisplay(displayOf(segments))}`);
 }
 
 async function branchMerge(ctx: CommandContext, args: string[]): Promise<void> {
@@ -159,7 +160,7 @@ async function branchMerge(ctx: CommandContext, args: string[]): Promise<void> {
   }
 
   ctx.repl.setCommandPrefix('BRANCH');
-  ctx.repl.say(`Done! ${branchDisplay(childDisplay)} merged with ${branchDisplay(parentDisplay)}.`);
+  ctx.repl.say(`${successBadge()} ${branchDisplay(childDisplay)} merged with ${branchDisplay(parentDisplay)}.`);
 }
 
 export const branchCommand: CommandDefinition = {

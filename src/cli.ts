@@ -2,6 +2,7 @@
 import { stopActiveRun } from './commands/run.js';
 import { loadGlobalConfig } from './config.js';
 import { Repl } from './repl.js';
+import { errorBadge } from './ui.js';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -20,6 +21,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  process.stderr.write(`kumiko: ${err instanceof Error ? err.message : String(err)}\n`);
+  process.stderr.write(`${errorBadge()} ${err instanceof Error ? err.message : String(err)}\n`);
   process.exitCode = 1;
 });

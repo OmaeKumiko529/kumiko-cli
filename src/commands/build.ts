@@ -5,6 +5,7 @@ import { branchPathFor, branchRef, requireProject, resolveServer } from '../cont
 import { gitCurrentBranch } from '../git.js';
 import { remoteHome, remoteWorktreeState, shQuote, updateRemoteWorktree } from '../remote.js';
 import { sftpDownloadDir, sshExec, sshExecStream } from '../ssh.js';
+import { successBadge } from '../ui.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 interface BuildOptions {
@@ -80,7 +81,7 @@ export const buildCommand: CommandDefinition = {
 
     if (!options.artifacts) {
       ctx.repl.setCommandPrefix('KUMIKOCLI');
-      ctx.repl.say(`Done! Build at @/${artifacts} remotely.`);
+      ctx.repl.say(`${successBadge()} Build at @/${artifacts} remotely.`);
       return;
     }
 
@@ -95,6 +96,6 @@ export const buildCommand: CommandDefinition = {
     rmSync(localArtifacts, { recursive: true, force: true });
     await sftpDownloadDir(server.entry, remoteArtifacts, localArtifacts);
     ctx.repl.setCommandPrefix('KUMIKOCLI');
-    ctx.repl.say(`Done! Build at *@/${artifacts} locally.`);
+    ctx.repl.say(`${successBadge()} Build at *@/${artifacts} locally.`);
   },
 };

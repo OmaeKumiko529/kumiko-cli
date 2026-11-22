@@ -39,7 +39,7 @@ import {
   validateProjectName,
 } from '../remote.js';
 import type { ProjectConfig, SyncRecord } from '../types.js';
-import { noticeBadge } from '../ui.js';
+import { noticeBadge, successBadge } from '../ui.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 /** Shown when syncing a parent branch that has children. */
@@ -96,7 +96,7 @@ async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<
       solutionName = (await repl.ask('solutionName: ')).trim() || 'Default';
       runCommand = (await repl.ask('Configure `kumiko run`: ')).trim() || undefined;
       buildCommand = (await repl.ask('Configure `kumiko build`: ')).trim() || undefined;
-      repl.say(`Done! You can modify additional configuration options in *kumikocli/sol/${solutionName.toLowerCase()}.sol`);
+      repl.say(`${successBadge()} You can modify additional configuration options in *kumikocli/sol/${solutionName.toLowerCase()}.sol`);
       break;
     }
     if (mode === 'l') {
@@ -163,7 +163,7 @@ async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<
   project.configuredOnServer = true;
   project.branch = displayPath;
   repl.setCommandPrefix('KUMIKOCLI');
-  repl.say(`Done! Sync as 'Initial commit':${sha.slice(0, 8)}.`);
+  repl.say(`${successBadge()} Sync as 'Initial commit':${sha.slice(0, 8)}.`);
 }
 
 async function syncFlow(ctx: CommandContext, server: SelectedServer, options: SyncOptions): Promise<void> {
@@ -253,7 +253,7 @@ async function syncFlow(ctx: CommandContext, server: SelectedServer, options: Sy
   }
 
   repl.say(
-    `Done! Push ${plural(files, 'changed file')} to ${name}:${branchDisplay(displayPath)}${propagate ? ' and its child branches' : ''} as '${message}':${sha.slice(0, 8)}.`,
+    `${successBadge()} Push ${plural(files, 'changed file')} to ${name}:${branchDisplay(displayPath)}${propagate ? ' and its child branches' : ''} as '${message}':${sha.slice(0, 8)}.`,
   );
 }
 

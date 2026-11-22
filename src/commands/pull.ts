@@ -18,6 +18,7 @@ import {
   serverCommitAndPush,
   sshCommandFor,
 } from '../remote.js';
+import { successBadge } from '../ui.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 interface PullOptions {
@@ -129,6 +130,6 @@ export const pullCommand: CommandDefinition = {
 
     project.branch = displayPath;
     project.configuredOnServer = true;
-    ctx.repl.say(`Done! Pull ${plural(files.length, 'file')} from ${project.name}:${branchDisplay(displayPath)}.`);
+    ctx.repl.say(`${successBadge()} Pull ${plural(files.length, 'file')} from ${project.name}:${branchDisplay(displayPath)}.`);
   },
 };
