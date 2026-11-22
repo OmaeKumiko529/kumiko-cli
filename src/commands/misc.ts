@@ -1,6 +1,7 @@
 import { loadProjectConfig } from '../config.js';
 import { gitDirtyCount } from '../git.js';
 import { sshExec } from '../ssh.js';
+import { VERSION } from '../version.js';
 import { activeRunSummary, stopActiveRun } from './run.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
@@ -53,6 +54,16 @@ export const statusCommand: CommandDefinition = {
   },
 };
 
+export const versionCommand: CommandDefinition = {
+  name: 'version',
+  usage: 'version',
+  summary: 'print the kumiko version',
+  promptPrefix: 'KUMIKOCLI',
+  async run(ctx: CommandContext): Promise<void> {
+    ctx.repl.say(`kumiko ${VERSION}`);
+  },
+};
+
 export const helpCommand: CommandDefinition = {
   name: 'help',
   usage: 'help',
@@ -62,6 +73,7 @@ export const helpCommand: CommandDefinition = {
     ctx.repl.sayLines([
       'commands:',
       '  server create | list | test | remove <name>   manage servers',
+      '  server key <name> [identity]                  attach an ssh key to an existing server',
       '  connect <server>                              connect to a server',
       '  switch <project>[:branch]                     switch project workspace',
       '  sync [commit] [-server <name>] [--force]      commit and push to the server',
@@ -74,6 +86,7 @@ export const helpCommand: CommandDefinition = {
       '  setting [<name> on|off]                       show or change project settings',
       '  logs [check <sha>]                            sync history / changed files',
       '  status                                        current context and state',
+      '  version                                       print the kumiko version',
       '  help                                          this list',
       '  exit                                          quit',
     ]);

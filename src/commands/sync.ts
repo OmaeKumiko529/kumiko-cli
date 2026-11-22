@@ -90,12 +90,20 @@ async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<
   let solutionName = '';
   let runCommand: string | undefined;
   let buildCommand: string | undefined;
+  const cleanCommand = (raw: string): string | undefined => {
+    let value = raw.trim();
+    if (/\\+$/.test(value)) {
+      value = value.replace(/\\+$/, '').trim();
+      repl.say('note: removed a trailing backslash from the command (it would continue the line).');
+    }
+    return value || undefined;
+  };
   for (;;) {
     const mode = (await repl.ask('Load a configured solution or create a new solution[l/c] ')).trim().toLowerCase();
     if (mode === 'c') {
       solutionName = (await repl.ask('solutionName: ')).trim() || 'Default';
-      runCommand = (await repl.ask('Configure `kumiko run`: ')).trim() || undefined;
-      buildCommand = (await repl.ask('Configure `kumiko build`: ')).trim() || undefined;
+      runCommand = cleanCommand(await repl.ask('Configure `kumiko run`: '));
+      buildCommand = cleanCommand(await repl.ask('Configure `kumiko build`: '));
       repl.say(`${successBadge()} You can modify additional configuration options in *kumikocli/sol/${solutionName.toLowerCase()}.sol`);
       break;
     }
@@ -126,6 +134,19 @@ async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<
   });
   repl.say(`Write .kumiko.toml at *${name}/`);
 
+  await resumableInitialSync(ctx, server, name);
+}
+
+/**
+ * Finish first-time setup for a project that already has `.kumiko.toml`: git init
+ * (if needed), the initial commit, the remote bare repo and the server worktree.
+ * Used by the create wizard and by `sync` when a previous create was interrupted.
+ */
+async function resumableInitialSync(ctx: CommandContext, server: SelectedServer, name: string): Promise<void> {
+  const repl = ctx.repl;
+  const project = repl.state.project;
+  if (!project) return;
+
   let branch = gitCurrentBranch(project.path);
   if (!branch) {
     if (!isGitRepo(project.path)) {
@@ -141,12 +162,12 @@ async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<
   }
 
   const dirty = gitDirtyCount(project.path) ?? 0;
-  if (dirty === 0) {
+  const displayPath = displayPathFor(loadProjectConfig(project.path), branch);
+  const sha = dirty > 0 ? gitAddAllAndCommit(project.path, 'Initial commit') : gitHeadSha(project.path);
+  if (!sha) {
     repl.say('nothing to commit.');
     return;
   }
-  const displayPath = displayPathFor(loadProjectConfig(project.path), branch);
-  const sha = gitAddAllAndCommit(project.path, 'Initial commit');
   const files = gitShowCommitFiles(project.path, sha).length;
   await ensureRemoteRepo(server.entry, name);
   const home = await remoteHome(server.entry);
@@ -181,6 +202,14 @@ async function syncFlow(ctx: CommandContext, server: SelectedServer, options: Sy
 
   if (!isGitRepo(project.path)) {
     repl.error(`project '${name}' is not a git repository.`);
+    return;
+  }
+
+  // A create wizard can stop after writing .kumiko.toml (missing key, ctrl-c, ...).
+  // The next sync finishes that first-time setup instead of pretending the
+  // project is already configured on the server.
+  if (loadHistory(name).length === 0 && (await remoteWorktreeState(server.entry, name)) === 'absent') {
+    await resumableInitialSync(ctx, server, name);
     return;
   }
 

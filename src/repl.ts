@@ -14,6 +14,8 @@ export class Repl {
   private running = false;
   private closed = false;
   private commandPrefix: string | null = null;
+  private readonly inputQueue: string[] = [];
+  private pumpPromise: Promise<void> | null = null;
 
   constructor(readonly config: GlobalConfig) {
     this.rl = createInterface({
@@ -56,15 +58,23 @@ export class Repl {
   }
 
   async ask(label: string): Promise<string> {
+    const prompt = this.promptString() + label;
+    // Piped input can arrive before the command reaches its next question.
+    if (this.inputQueue.length > 0) {
+      this.writePrompt(prompt);
+      return this.inputQueue.shift() as string;
+    }
+    if (this.closed) throw new CommandCancelled();
     return new Promise<string>((resolve, reject) => {
       this.pendingResolve = resolve;
       this.pendingReject = reject;
-      this.writePrompt(this.promptString() + label);
+      this.writePrompt(prompt);
     });
   }
 
   quit(): void {
     this.closed = true;
+    this.inputQueue.length = 0;
     this.rl.close();
     // A piped stdin keeps the process alive unless it is explicitly paused.
     process.stdin.pause();
@@ -74,6 +84,9 @@ export class Repl {
     this.showPrompt();
     if (this.closed) return;
     await new Promise<void>((resolve) => this.rl.once('close', () => resolve()));
+    // Piped stdin can deliver every line and close before the last command has
+    // finished; finish the queued commands before the process is allowed to exit.
+    await this.pump();
   }
 
   private showPrompt(): void {
@@ -122,13 +135,33 @@ export class Repl {
       resolve(line);
       return;
     }
-    if (this.closed || this.running) return;
-    const input = line.trim();
-    if (!input) {
-      this.showPrompt();
-      return;
+    this.inputQueue.push(line);
+    await this.pump();
+  }
+
+  private pump(): Promise<void> {
+    if (!this.pumpPromise) {
+      this.pumpPromise = this.pumpLoop().finally(() => {
+        this.pumpPromise = null;
+      });
     }
-    await this.execute(input);
+    return this.pumpPromise;
+  }
+
+  private async pumpLoop(): Promise<void> {
+    while (this.inputQueue.length > 0) {
+      const line = this.inputQueue.shift() as string;
+      const input = line.trim();
+      if (!input) {
+        this.showPrompt();
+        continue;
+      }
+      if (this.running) {
+        this.inputQueue.unshift(line);
+        return;
+      }
+      await this.execute(input);
+    }
   }
 
   private async execute(input: string): Promise<void> {

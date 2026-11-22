@@ -5,7 +5,7 @@ import { buildCommand } from './build.js';
 import { logsCommand } from './logs.js';
 import { pullCommand } from './pull.js';
 import { runCommand } from './run.js';
-import { exitCommand, helpCommand, statusCommand } from './misc.js';
+import { exitCommand, helpCommand, statusCommand, versionCommand } from './misc.js';
 import { serverCommand } from './server.js';
 import { connectCommand, switchCommand } from './session.js';
 import { settingCommand } from './setting.js';
@@ -37,6 +37,7 @@ export const commands: CommandDefinition[] = [
   settingCommand,
   logsCommand,
   statusCommand,
+  versionCommand,
   helpCommand,
   exitCommand,
 ];

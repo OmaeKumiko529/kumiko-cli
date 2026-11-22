@@ -30,7 +30,7 @@ export function pushUrlFor(entry: ServerEntry, remoteHomePath: string, projectNa
 export function sshCommandFor(entry: ServerEntry): string {
   if (!entry.identity) {
     throw new Error(
-      'sync needs an ssh key. Set `identity = "<path to private key>"` for this server in ~/.kumiko/config.toml.',
+      'this server has no ssh key. run `server key <name> <path to private key>` (or set identity = "<path>" in ~/.kumiko/config.toml) so git can reach the server.',
     );
   }
   const identity = entry.identity.replace(/\\/g, '/');

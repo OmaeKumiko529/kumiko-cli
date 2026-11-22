@@ -3,11 +3,12 @@ import { stopActiveRun } from './commands/run.js';
 import { loadGlobalConfig } from './config.js';
 import { Repl } from './repl.js';
 import { errorBadge } from './ui.js';
+import { VERSION } from './version.js';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args[0] === '--version' || args[0] === '-v' || args[0] === 'version') {
-    process.stdout.write('kumiko 0.0.1\n');
+    process.stdout.write(`kumiko ${VERSION}\n`);
     return;
   }
   const config = loadGlobalConfig();
