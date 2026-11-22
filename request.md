@@ -90,5 +90,5 @@ PULL personalServer testProject:/main/dev $> Done! Pull 325 files from testProje
 # 改动部分文件后
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko sync testpush --force
 SYNC personalServer testProject:/main/dev $> WARNING --force will push all files and OVERWRITE your current branch. Input branch name to OVERWRITE: dev
-SYNC personalServer testProject:/main $> Done! Push 325 files to testProject:/main/dev as 'testpush':1a2b3c4d.
+SYNC personalServer testProject:/main/dev $> Done! Push 325 files to testProject:/main/dev as 'testpush':1a2b3c4d.
 ```

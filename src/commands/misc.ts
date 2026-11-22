@@ -62,12 +62,13 @@ export const helpCommand: CommandDefinition = {
       '  connect <server>                              connect to a server',
       '  switch <project>[:branch]                     switch project workspace',
       '  sync [commit] [-server <name>] [--force]      commit and push to the server',
+      '  build [-server <name>] [-artifacts]           build on the server (pull dist with -artifacts)',
       '  logs [check <sha>]                            sync history / changed files',
       '  status                                        current context and state',
       '  help                                          this list',
       '  exit                                          quit',
       '',
-      'planned (request.md): build / pull / new branch / dev',
+      'planned (request.md): pull / new branch / dev',
     ]);
   },
 };

@@ -21,9 +21,17 @@ M1：sync + logs
 - `logs`：本地同步历史（`~/.kumiko/history/<project>.jsonl`）
 - `logs check <sha>`：单次同步的改动文件树
 
+M2：build
+
+- `build [-server <name>] [-artifacts]`
+  - 读本地 `.kumiko.toml` 的 `[build].command`，在远端工作树上执行（输出流式回显）
+  - 默认 Done 文案指向远端产物 `@/<artifacts>`（`[build].artifacts` 默认 `dist`）
+  - `-artifacts` 用 SFTP 把远端产物拉回本地 `*@/<artifacts>`
+  - 失败时报告退出码；构建产物是 untracked，不算远端工作树 dirty
+
 远端布局（服务器）：`~/kumiko/repos/<project>.git`（裸库）+ `~/kumiko/projects/<project>`（工作树）。
 
-之后按 request 的交互逻辑推进：`build` → `pull` → `new branch` → `dev` 热更新。
+之后按 request 的交互逻辑推进：`pull` → `new branch` → `dev` 热更新。
 
 ## 开发
 
@@ -40,9 +48,10 @@ kumiko
 npm run build
 node dev/smoke.mjs       # M0：server create / connect / switch / status
 node dev/smoke-sync.mjs  # M1：sync create 向导 / push / force 确认 / logs
+node dev/smoke-build.mjs # M2：build / -artifacts 拉回
 ```
 
-两个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
+三个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
 
 ## 配置
 

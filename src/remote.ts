@@ -51,9 +51,11 @@ export type RemoteWorktreeState = 'absent' | 'clean' | 'dirty';
 export async function remoteWorktreeState(entry: ServerEntry, projectName: string): Promise<RemoteWorktreeState> {
   validateProjectName(projectName);
   const work = `"$HOME/kumiko/projects/${projectName}"`;
+  // Untracked files are expected after a build (`dist/` etc.), so only tracked
+  // modifications count as a dirty workspace.
   const result = await sshExec(
     entry,
-    `if [ ! -d ${work}/.git ]; then echo ABSENT; elif [ -n "$(git -C ${work} status --porcelain)" ]; then echo DIRTY; else echo CLEAN; fi`,
+    `if [ ! -d ${work}/.git ]; then echo ABSENT; elif [ -n "$(git -C ${work} status --porcelain --untracked-files=no)" ]; then echo DIRTY; else echo CLEAN; fi`,
   );
   const state = result.stdout.trim();
   return state === 'DIRTY' ? 'dirty' : state === 'CLEAN' ? 'clean' : 'absent';

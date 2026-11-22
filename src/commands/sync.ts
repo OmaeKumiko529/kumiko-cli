@@ -27,18 +27,14 @@ import {
   updateRemoteWorktree,
   validateProjectName,
 } from '../remote.js';
-import type { ServerEntry, SyncRecord } from '../types.js';
+import { branchDisplay, plural, resolveServer, type SelectedServer } from '../context.js';
+import type { SyncRecord } from '../types.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 interface SyncOptions {
   message?: string;
   force: boolean;
   serverName?: string;
-}
-
-interface SelectedServer {
-  name: string;
-  entry: ServerEntry;
 }
 
 function parseSyncArgs(args: string[]): SyncOptions {
@@ -61,26 +57,6 @@ function parseSyncArgs(args: string[]): SyncOptions {
     }
   }
   return options;
-}
-
-function resolveServer(ctx: CommandContext, serverName?: string): SelectedServer {
-  if (serverName) {
-    const entry = ctx.config.servers[serverName];
-    if (!entry) throw new Error(`server '${serverName}' not found. use \`server list\`.`);
-    return { name: serverName, entry };
-  }
-  if (!ctx.repl.state.server) {
-    throw new Error('no server selected. use `connect <server>` or `sync -server <name>`.');
-  }
-  return ctx.repl.state.server;
-}
-
-function branchDisplay(branch: string): string {
-  return `/${branch}`;
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
 async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<void> {
