@@ -43,7 +43,22 @@ KUMIKO CLI提供了非常方便的快捷指令。通常情况下，你不用做�
 将服务器挂载到工作区中：
 ![alt text](image-4.png)
 
-随后第一次同步，并让工作区自动生成commit:
+随后第一次同步，并让工作区自动生成commit。因为是第一次配置，所以会系统让你选择解决方案。如果没有事先下载对某种语言的解决方案的话，就创建一个解决方案，然后填入最基本的`run`和`build`参数即可。
 ![alt text](image-5.png)
 
 稍微等待一会即可。服务器成功挂载到工作区后，可以看到第一次提交记录。
+![alt text](image-6.png)
+
+这时你可以清晰地看到`Prompt`变为了：
+```Bash
+KUMIKOCLI home deepseek-sage-client:/main
+```
+
+它代表了三个常驻参数：
+```Bash
+KUMIKOCLI [server] [project]:[branch]
+```
+
+进入到这一步，第一个库的配置就基本完成了。你可以查阅`kumiko help`来继续查看高级操作。
+
+现在直接`sync`并`run`就可以通过remote的方式调试项目了。
