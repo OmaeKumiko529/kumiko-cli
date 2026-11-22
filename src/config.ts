@@ -8,6 +8,7 @@ export const KUMIKO_HOME = path.join(homedir(), '.kumiko');
 export const GLOBAL_CONFIG_PATH = path.join(KUMIKO_HOME, 'config.toml');
 export const SOLUTIONS_DIR = path.join(KUMIKO_HOME, 'sol');
 export const HISTORY_DIR = path.join(KUMIKO_HOME, 'history');
+export const PROJECTS_PATH = path.join(KUMIKO_HOME, 'projects.json');
 
 function ensureKumikoHome(): void {
   if (!existsSync(KUMIKO_HOME)) mkdirSync(KUMIKO_HOME, { recursive: true });
@@ -143,6 +144,28 @@ export function loadSolution(name: string): ProjectConfig | null {
       : undefined,
     test: test?.command ? { command: String(test.command) } : undefined,
   };
+}
+
+/** Projects that were switched to at least once, by name, so `switch <name>` works from anywhere. */
+export function loadKnownProjects(): Record<string, string> {
+  if (!existsSync(PROJECTS_PATH)) return {};
+  try {
+    const data = JSON.parse(readFileSync(PROJECTS_PATH, 'utf8')) as Record<string, unknown>;
+    const projects: Record<string, string> = {};
+    for (const [name, dir] of Object.entries(data)) {
+      if (typeof dir === 'string' && dir.trim()) projects[name] = dir;
+    }
+    return projects;
+  } catch {
+    return {};
+  }
+}
+
+export function rememberProject(name: string, dir: string): void {
+  ensureKumikoHome();
+  const projects = loadKnownProjects();
+  projects[name] = path.resolve(dir);
+  writeFileSync(PROJECTS_PATH, JSON.stringify(projects, null, 2) + '\n', 'utf8');
 }
 
 function historyFile(projectName: string): string {

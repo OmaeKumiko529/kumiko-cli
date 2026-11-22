@@ -9,7 +9,7 @@ M0：REPL 交互骨架
 - 常驻上下文 prompt（`KUMIKOCLI` / 命令名前缀、`*` 本地、`:/branch` 分支）
 - `server create | list | test | remove`
 - `connect <server>`
-- `switch <project>[:branch]`
+- `switch <project|path>[:branch]`
 - `status` / `help` / `exit`
 
 M1：sync + logs
@@ -41,7 +41,7 @@ M4：分支树（显示路径）
 
 - `.kumiko.toml` 增加 `[branches]`（子分支 ref = 父分支 ref）与 `[branch] syncChildren`
 - `branch new /<parent>/<child>`：从当前父分支创建本地分支与远端分支、记录 `[branches]`，输出 `Done! New branch /main/dev`
-- `switch <project>:/<parent>/<child> [--carry]`：按显示路径切换；`--carry` 允许携带未提交改动
+- `switch <project|path>[:branch] [--carry]`：项目可以写绝对/相对路径，也可以写以前切换过的项目名（记在 `~/.kumiko/projects.json`）或当前项目名；`switch :/main/test` 表示只切当前项目的分支；分支路径接受 `\main\dev` 这类反斜杠写法；`--carry` 允许携带未提交改动
 - `branch merge <child> to <parent>`：服务器端把子分支合并进父分支并推回，本地父分支 fast-forward；Done 使用 `BRANCH` 前缀
 - 父分支 `sync`：有子分支且 `syncChildren` 开启时，先打印 NOTICE 并输入父分支名确认，再把父 commit 合并进子分支（保留子提交，冲突中止）
 - `setting` / `setting syncChildren on|off`：查看 / 写入项目设置

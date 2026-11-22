@@ -1,5 +1,5 @@
 import { loadProjectConfig, saveProjectConfig } from '../config.js';
-import { branchDisplay, branchPathFor, branchRef, requireProject, resolveServer } from '../context.js';
+import { branchDisplay, branchPathFor, branchRef, normalizeBranchPath, requireProject, resolveServer } from '../context.js';
 import {
   gitBranchExists,
   gitCreateBranch,
@@ -33,12 +33,12 @@ function last(segments: string[]): string {
 }
 
 async function branchNew(ctx: CommandContext, args: string[]): Promise<void> {
-  const rawPath = args[0];
-  if (!rawPath || !rawPath.startsWith('/')) {
+  const rawArg = args[0];
+  if (!rawArg) {
     ctx.repl.error('usage: branch new /<parent>/<child>   (e.g. branch new /main/dev)');
     return;
   }
-  const segments = splitPath(rawPath);
+  const segments = splitPath(normalizeBranchPath(rawArg));
   if (segments.length < 2) {
     ctx.repl.error('a child branch path needs a parent: /main/dev');
     return;
@@ -93,8 +93,8 @@ async function branchMerge(ctx: CommandContext, args: string[]): Promise<void> {
     ctx.repl.error('usage: branch merge <child> to <parent>   (e.g. branch merge /main/dev to /main)');
     return;
   }
-  const childSegments = splitPath(args[0] as string);
-  const parentSegments = splitPath(args[2] as string);
+  const childSegments = splitPath(normalizeBranchPath(args[0] as string));
+  const parentSegments = splitPath(normalizeBranchPath(args[2] as string));
   if (childSegments.length < 2 || parentSegments.length < 1) {
     ctx.repl.error('usage: branch merge /<parent>/<child> to /<parent>');
     return;

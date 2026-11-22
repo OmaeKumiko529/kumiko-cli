@@ -28,6 +28,15 @@ export function branchDisplay(branch: string): string {
   return `/${branch}`;
 }
 
+/** Normalize a user typed branch path: `\main\dev` / `/main/dev/` -> `main/dev`. */
+export function normalizeBranchPath(raw: string): string {
+  return raw
+    .replace(/\\/g, '/')
+    .split('/')
+    .filter((part) => part.length > 0)
+    .join('/');
+}
+
 /** The git ref behind a display path: `main/dev` -> `dev`. */
 export function branchRef(branchPath: string): string {
   const parts = branchPath.split('/').filter((part) => part.length > 0);
