@@ -1,6 +1,7 @@
 import { loadProjectConfig } from '../config.js';
 import { gitDirtyCount } from '../git.js';
 import { sshExec } from '../ssh.js';
+import { activeRunSummary, stopActiveRun } from './run.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
 
 export const statusCommand: CommandDefinition = {
@@ -46,6 +47,8 @@ export const statusCommand: CommandDefinition = {
         lines.push('remote   unreachable');
       }
     }
+    const runSummary = activeRunSummary();
+    if (runSummary) lines.push(`run      active  ${runSummary}`);
     ctx.repl.sayLines(lines);
   },
 };
@@ -64,6 +67,8 @@ export const helpCommand: CommandDefinition = {
       '  sync [commit] [-server <name>] [--force]      commit and push to the server',
       '  build [-server <name>] [-artifacts]           build on the server (pull dist with -artifacts)',
       '  pull [branch] [-server <name>] [--force]      pull server-side changes back home',
+      '  run [-server <name>] [--port <local>]         run on the server, forward the dev port',
+      '  run stop                                      stop the active run session',
       '  branch new /<parent>/<child>                  create a child branch (e.g. branch new /main/dev)',
       '  branch merge <child> to <parent>              merge a child branch into its parent',
       '  setting [<name> on|off]                       show or change project settings',
@@ -71,8 +76,6 @@ export const helpCommand: CommandDefinition = {
       '  status                                        current context and state',
       '  help                                          this list',
       '  exit                                          quit',
-      '',
-      'planned (request.md): dev',
     ]);
   },
 };
@@ -83,6 +86,7 @@ export const exitCommand: CommandDefinition = {
   summary: 'quit kumiko',
   promptPrefix: 'KUMIKOCLI',
   async run(ctx: CommandContext): Promise<void> {
+    await stopActiveRun(ctx.repl, true);
     ctx.repl.quit();
   },
 };

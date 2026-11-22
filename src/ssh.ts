@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { Client } from 'ssh2';
-import type { FileEntryWithStats, SFTPWrapper } from 'ssh2';
+import type { ClientChannel, FileEntryWithStats, SFTPWrapper } from 'ssh2';
 import type { ServerEntry } from './types.js';
 
 export interface ExecResult {
@@ -30,13 +30,18 @@ function connectionConfig(entry: ServerEntry): Record<string, unknown> {
   return config;
 }
 
-export async function withSsh<T>(entry: ServerEntry, fn: (client: Client) => Promise<T>): Promise<T> {
+/** Open a plain ssh connection. The caller owns the client and must end it. */
+export function connectSsh(entry: ServerEntry): Promise<Client> {
   const client = new Client();
-  await new Promise<void>((resolve, reject) => {
-    client.once('ready', () => resolve());
+  return new Promise<Client>((resolve, reject) => {
+    client.once('ready', () => resolve(client));
     client.once('error', (err) => reject(err));
     client.connect(connectionConfig(entry) as never);
   });
+}
+
+export async function withSsh<T>(entry: ServerEntry, fn: (client: Client) => Promise<T>): Promise<T> {
+  const client = await connectSsh(entry);
   try {
     return await fn(client);
   } finally {
@@ -44,12 +49,18 @@ export async function withSsh<T>(entry: ServerEntry, fn: (client: Client) => Pro
   }
 }
 
-export function execOn(
+export interface StreamHandle {
+  stream: ClientChannel;
+  done: Promise<ExecResult>;
+}
+
+/** Like execOn, but hands back the live channel so long-running output can be cut short. */
+export function openExec(
   client: Client,
   command: string,
   onOutput?: (chunk: string) => void,
-): Promise<ExecResult> {
-  return new Promise<ExecResult>((resolve, reject) => {
+): Promise<StreamHandle> {
+  return new Promise<StreamHandle>((resolve, reject) => {
     client.exec(command, (err, stream) => {
       if (err) {
         reject(err);
@@ -67,9 +78,23 @@ export function execOn(
         stderr += text;
         onOutput?.(text);
       });
-      stream.on('close', (code: number) => resolve({ code, stdout: stdout.trim(), stderr: stderr.trim() }));
+      const done = new Promise<ExecResult>((settle) => {
+        stream.on('close', (code: number) =>
+          settle({ code, stdout: stdout.trim(), stderr: stderr.trim() }),
+        );
+      });
+      resolve({ stream, done });
     });
   });
+}
+
+export async function execOn(
+  client: Client,
+  command: string,
+  onOutput?: (chunk: string) => void,
+): Promise<ExecResult> {
+  const handle = await openExec(client, command, onOutput);
+  return handle.done;
 }
 
 export async function sshExec(entry: ServerEntry, command: string): Promise<ExecResult> {

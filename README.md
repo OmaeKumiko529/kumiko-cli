@@ -47,9 +47,19 @@ M4：分支树（显示路径）
 - `setting` / `setting syncChildren on|off`：查看 / 写入项目设置
 - 显示路径与 git ref：`main/dev` 是显示路径，底层 git ref 是 `dev`，父级关系存在 `.kumiko.toml [branches]`
 
-远端布局（服务器）：`~/kumiko/repos/<project>.git`（裸库）+ `~/kumiko/projects/<project>`（工作树）。
+M5：run（远程运行 + 端口转发）
 
-之后按 request 的交互逻辑推进：`dev` 热更新（最后一项）。
+- `run [-server <name>] [--port <local>] [--remote-port <remote>]`
+  - 把远端工作树同步到当前分支后，在服务器运行 `.kumiko.toml [run].command`
+  - 远端端口取 `[run].port`（默认 5173），本地监听同端口或 `--port` 指定；本地端口 → 服务器端口 TCP 转发
+  - 远端日志流式回显（前缀 `run | `），进程用 `setsid` 独立会话启动，退出 REPL 时自动收掉
+- `run stop`：结束远端进程、关闭转发
+- `run status` / `status`：查看当前 run 会话
+- Ctrl-C 在空闲时也会收掉 run 会话
+
+远端布局（服务器）：`~/kumiko/repos/<project>.git`（裸库）+ `~/kumiko/projects/<project>`（工作树）+ `~/kumiko/logs/<project>.run.log`。
+
+request.md 里的命令到这里已全部实现：sync / build / pull / run / branch new / branch merge / setting / logs / server / connect / switch / status。
 
 ## 开发
 
@@ -69,9 +79,10 @@ node dev/smoke-sync.mjs  # M1：sync create 向导 / push / force 确认 / logs
 node dev/smoke-build.mjs # M2：build / -artifacts 拉回
 node dev/smoke-pull.mjs  # M3：拉回服务器改动 / --force 覆盖本地
 node dev/smoke-branch.mjs # M4：branch new / switch 显示路径 / branch merge / 父分支下发 / setting
+node dev/smoke-run.mjs    # M5：run 远端进程 / 本地端口转发 / run stop
 ```
 
-五个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
+六个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
 
 ## 配置
 

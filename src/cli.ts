@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { stopActiveRun } from './commands/run.js';
 import { loadGlobalConfig } from './config.js';
 import { Repl } from './repl.js';
 
@@ -10,7 +11,12 @@ async function main(): Promise<void> {
   }
   const config = loadGlobalConfig();
   const repl = new Repl(config);
-  await repl.start();
+  try {
+    await repl.start();
+  } finally {
+    // never leave a remote dev process running after the REPL exits
+    await stopActiveRun(null, true);
+  }
 }
 
 main().catch((err: unknown) => {

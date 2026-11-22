@@ -4,6 +4,7 @@ import { branchCommand } from './branch.js';
 import { buildCommand } from './build.js';
 import { logsCommand } from './logs.js';
 import { pullCommand } from './pull.js';
+import { runCommand } from './run.js';
 import { exitCommand, helpCommand, statusCommand } from './misc.js';
 import { serverCommand } from './server.js';
 import { connectCommand, switchCommand } from './session.js';
@@ -31,6 +32,7 @@ export const commands: CommandDefinition[] = [
   syncCommand,
   buildCommand,
   pullCommand,
+  runCommand,
   branchCommand,
   settingCommand,
   logsCommand,

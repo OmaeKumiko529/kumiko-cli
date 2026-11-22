@@ -1,5 +1,6 @@
 import { createInterface, type Interface } from 'node:readline';
 import pc from 'picocolors';
+import { hasActiveRun, stopActiveRun } from './commands/run.js';
 import { findCommand } from './commands/registry.js';
 import type { GlobalConfig, SessionState } from './types.js';
 import { promptFor, visibleLength } from './ui.js';
@@ -103,6 +104,12 @@ export class Repl {
     process.stdout.write('^C\n');
     if (this.pendingReject) {
       this.rejectPending(new CommandCancelled());
+      return;
+    }
+    if (hasActiveRun()) {
+      void stopActiveRun(this).finally(() => {
+        if (!this.closed) this.showPrompt();
+      });
       return;
     }
     if (!this.closed && !this.running) this.showPrompt();

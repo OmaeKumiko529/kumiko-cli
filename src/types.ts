@@ -13,7 +13,7 @@ export interface GlobalConfig {
 export interface ProjectConfig {
   project: { name: string };
   solution?: { name: string };
-  run?: { command: string };
+  run?: { command: string; port?: number };
   build?: { command: string; artifacts?: string };
   test?: { command: string };
   /** Branch tree: child branch ref -> parent branch ref. The main branch has no entry. */

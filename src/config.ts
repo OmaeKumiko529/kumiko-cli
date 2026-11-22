@@ -81,7 +81,9 @@ export function loadProjectConfig(dir: string): ProjectConfig | null {
   return {
     project: { name: typeof project.name === 'string' ? project.name : path.basename(dir) },
     solution: solution?.name ? { name: String(solution.name) } : undefined,
-    run: run?.command ? { command: String(run.command) } : undefined,
+    run: run?.command
+      ? { command: String(run.command), port: typeof run.port === 'number' ? run.port : undefined }
+      : undefined,
     build: build?.command
       ? { command: String(build.command), artifacts: build.artifacts ? String(build.artifacts) : undefined }
       : undefined,
@@ -94,7 +96,10 @@ export function loadProjectConfig(dir: string): ProjectConfig | null {
 export function saveProjectConfig(dir: string, config: ProjectConfig): void {
   const lines = ['# KUMIKO CLI toolchain record. Commit this file and sync it with the project.', '', '[project]', `name = ${tomlString(config.project.name)}`];
   if (config.solution?.name) lines.push('', '[solution]', `name = ${tomlString(config.solution.name)}`);
-  if (config.run?.command) lines.push('', '[run]', `command = ${tomlString(config.run.command)}`);
+  if (config.run?.command) {
+    lines.push('', '[run]', `command = ${tomlString(config.run.command)}`);
+    if (config.run.port) lines.push(`port = ${config.run.port}`);
+  }
   if (config.build?.command) {
     lines.push('', '[build]', `command = ${tomlString(config.build.command)}`);
     if (config.build.artifacts) lines.push(`artifacts = ${tomlString(config.build.artifacts)}`);
@@ -130,7 +135,9 @@ export function loadSolution(name: string): ProjectConfig | null {
   return {
     project: { name: name },
     solution: { name },
-    run: run?.command ? { command: String(run.command) } : undefined,
+    run: run?.command
+      ? { command: String(run.command), port: typeof run.port === 'number' ? run.port : undefined }
+      : undefined,
     build: build?.command
       ? { command: String(build.command), artifacts: build.artifacts ? String(build.artifacts) : undefined }
       : undefined,
