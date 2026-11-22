@@ -37,9 +37,19 @@ M3：pull
   - Done 文案 `Done! Pull <n> file(s) from <project>:/<branch>.`
   - 本地有未提交改动时非 `--force` 拒绝；服务器工作树在别的分支时拒绝
 
+M4：分支树（显示路径）
+
+- `.kumiko.toml` 增加 `[branches]`（子分支 ref = 父分支 ref）与 `[branch] syncChildren`
+- `branch new /<parent>/<child>`：从当前父分支创建本地分支与远端分支、记录 `[branches]`，输出 `Done! New branch /main/dev`
+- `switch <project>:/<parent>/<child> [--carry]`：按显示路径切换；`--carry` 允许携带未提交改动
+- `branch merge <child> to <parent>`：服务器端把子分支合并进父分支并推回，本地父分支 fast-forward；Done 使用 `BRANCH` 前缀
+- 父分支 `sync`：有子分支且 `syncChildren` 开启时，先打印 NOTICE 并输入父分支名确认，再把父 commit 合并进子分支（保留子提交，冲突中止）
+- `setting` / `setting syncChildren on|off`：查看 / 写入项目设置
+- 显示路径与 git ref：`main/dev` 是显示路径，底层 git ref 是 `dev`，父级关系存在 `.kumiko.toml [branches]`
+
 远端布局（服务器）：`~/kumiko/repos/<project>.git`（裸库）+ `~/kumiko/projects/<project>`（工作树）。
 
-之后按 request 的交互逻辑推进：`new branch` → `dev` 热更新。
+之后按 request 的交互逻辑推进：`dev` 热更新（最后一项）。
 
 ## 开发
 
@@ -58,11 +68,12 @@ node dev/smoke.mjs       # M0：server create / connect / switch / status
 node dev/smoke-sync.mjs  # M1：sync create 向导 / push / force 确认 / logs
 node dev/smoke-build.mjs # M2：build / -artifacts 拉回
 node dev/smoke-pull.mjs  # M3：拉回服务器改动 / --force 覆盖本地
+node dev/smoke-branch.mjs # M4：branch new / switch 显示路径 / branch merge / 父分支下发 / setting
 ```
 
-四个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
+五个冒烟脚本都需要能免密 `ssh` 到测试服务器，并在结束后清理服务器上的临时仓库。
 
 ## 配置
 
 - 全局：`~/.kumiko/config.toml`（服务器列表与 ssh key，不入仓库、权限 0600）
-- 项目：`.kumiko.toml` 提交进项目仓库，随 sync 同步到服务器，记录工具链（solution / run / build / test）
+- 项目：`.kumiko.toml` 提交进项目仓库，随 sync 同步到服务器，记录工具链（solution / run / build / test）与分支树（`[branches]` / `[branch] syncChildren`）

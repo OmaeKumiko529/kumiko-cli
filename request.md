@@ -78,7 +78,7 @@ LOGS personalServer testProject $> LOGS
 KUMIKOCLI personalServer testProject:/main $> kumiko build -artifacts
 KUMIKOCLI personalServer testProject:/main $> Done! Build at *@/dist locally.
 # 改动部分文件后
-KUMIKOCLI personalServer testProject:/main $> kumiko new branch /main/dev
+KUMIKOCLI personalServer testProject:/main $> kumiko branch new /main/dev
 KUMIKOCLI personalServer testProject:/main $> Done! New branch /main/dev
 KUMIKOCLI personalServer testProject:/main $> kumiko switch testProject:/main/dev --carry
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko sync devInitial
@@ -91,4 +91,14 @@ PULL personalServer testProject:/main/dev $> Done! Pull 325 files from testProje
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko sync testpush --force
 SYNC personalServer testProject:/main/dev $> WARNING --force will push all files and OVERWRITE your current branch. Input branch name to OVERWRITE: dev
 SYNC personalServer testProject:/main/dev $> Done! Push 325 files to testProject:/main/dev as 'testpush':1a2b3c4d.
+
+# 子分支与父分支特性与合并演示
+KUMIKOCLI personalServer testProject:/main/dev $> kumiko branch merge /main/dev to /main
+BRANCH personalServer testProject:/main/dev $> Done! /main/dev merged with /main.
+
+KUMIKOCLI personalServer testProject:/main/dev $> kumiko switch testProject:/main
+# 改动部分文件后
+KUMIKOCLI personalServer testProject:/main $> kumiko sync
+SYNC personalServer testProject:/main $> NOTICE By default running sync on a parent branch will cause the same sync content to be pushed to its child branches. To change this setting, use the kumiko setting.Input branch name to sync: main
+SYNC personalServer testProject:/main $> Done! Push 2 changed files to testProject:/main and its child branches as 'test114514':1a2b3c4d.
 ```

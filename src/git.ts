@@ -124,3 +124,29 @@ export function gitMergeFfOnly(dir: string, ref: string): void {
 export function gitResetHard(dir: string, ref: string): void {
   runGit(dir, ['reset', '--hard', ref]);
 }
+
+export function gitBranchExists(dir: string, ref: string): boolean {
+  try {
+    runGit(dir, ['rev-parse', '--verify', '--quiet', `refs/heads/${ref}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function gitCreateBranch(dir: string, ref: string): void {
+  runGit(dir, ['branch', ref]);
+}
+
+export function gitCheckout(dir: string, ref: string): void {
+  runGit(dir, ['checkout', '-q', ref]);
+}
+
+/** Fast-forward a local branch ref from the server after a server-side merge. */
+export function gitFetchLocalBranch(dir: string, options: FetchOptions): void {
+  runGit(
+    dir,
+    ['fetch', '-q', '--no-tags', '--update-head-ok', options.url, `${options.branch}:${options.branch}`],
+    options.sshCommand ? { env: { GIT_SSH_COMMAND: options.sshCommand } } : {},
+  );
+}

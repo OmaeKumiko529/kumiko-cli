@@ -102,3 +102,121 @@ export async function serverCommitAndPush(entry: ServerEntry, projectName: strin
   if (!sha) throw new Error('the server did not report a commit for the pull');
   return sha;
 }
+
+const KUMIKO_IDENTITY = '-c user.name=kumiko -c user.email=kumiko@localhost';
+
+function stdoutLines(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+export interface MergeBranchResult {
+  kind: 'merged' | 'dirty' | 'conflict' | 'error';
+  files: string[];
+  message?: string;
+}
+
+/**
+ * Merge a child branch into its parent on the server. The project worktree is
+ * restored to `restoreRef` afterwards, whatever the outcome.
+ */
+export async function serverMergeBranch(
+  entry: ServerEntry,
+  projectName: string,
+  childRef: string,
+  parentRef: string,
+  restoreRef: string,
+): Promise<MergeBranchResult> {
+  validateProjectName(projectName);
+  const work = `"$HOME/kumiko/projects/${projectName}"`;
+  const script = [
+    `cd ${work}`,
+    `if [ -n "$(git status --porcelain --untracked-files=no)" ]; then echo DIRTY; exit 0; fi`,
+    `git fetch --prune origin >/dev/null 2>&1 || { echo FETCH_FAILED; exit 0; }`,
+    `git checkout -q -f -B ${shQuote(parentRef)} origin/${shQuote(parentRef)} >/dev/null 2>&1 || { echo CHECKOUT_FAILED; exit 0; }`,
+    `if git ${KUMIKO_IDENTITY} merge --no-edit -q origin/${shQuote(childRef)} >/dev/null 2>&1; then`,
+    `  if git push -q origin ${shQuote(parentRef)} >/dev/null 2>&1; then echo MERGED; else echo PUSH_FAILED; fi`,
+    `else`,
+    `  echo CONFLICT;`,
+    `  git diff --name-only --diff-filter=U;`,
+    `  git merge --abort >/dev/null 2>&1 || true;`,
+    `fi`,
+    `git checkout -q -f -B ${shQuote(restoreRef)} origin/${shQuote(restoreRef)} >/dev/null 2>&1 || true`,
+  ].join('\n');
+  const result = await sshExec(entry, script);
+  const lines = stdoutLines(result.stdout);
+  if (lines[0] === 'DIRTY') {
+    return { kind: 'dirty', files: [], message: 'the remote workspace has uncommitted changes' };
+  }
+  if (lines.includes('MERGED')) return { kind: 'merged', files: [] };
+  const conflictIndex = lines.indexOf('CONFLICT');
+  if (conflictIndex >= 0) {
+    return { kind: 'conflict', files: lines.slice(conflictIndex + 1) };
+  }
+  const failed = lines.find((line) => /^[A-Z_]+$/.test(line) && line !== 'MERGED');
+  return { kind: 'error', files: [], message: failed ?? result.stderr.trim() ?? 'the server merge failed' };
+}
+
+export interface PropagateChildrenResult {
+  kind: 'ok' | 'conflict' | 'error';
+  updated: string[];
+  conflictBranch?: string;
+  files: string[];
+  message?: string;
+}
+
+/**
+ * Push a synced parent commit onto each child branch on the server. Child
+ * commits are preserved (a merge, not a reset); a conflict stops propagation
+ * and restores the worktree.
+ */
+export async function serverPropagateChildren(
+  entry: ServerEntry,
+  projectName: string,
+  sourceRef: string,
+  childRefs: string[],
+  restoreRef: string,
+): Promise<PropagateChildrenResult> {
+  if (childRefs.length === 0) return { kind: 'ok', updated: [], files: [] };
+  validateProjectName(projectName);
+  const work = `"$HOME/kumiko/projects/${projectName}"`;
+  const branches = childRefs.map((ref) => shQuote(ref)).join(' ');
+  const restore = `git checkout -q -f -B ${shQuote(restoreRef)} origin/${shQuote(restoreRef)} >/dev/null 2>&1 || true`;
+  const script = [
+    `cd ${work}`,
+    `if [ -n "$(git status --porcelain --untracked-files=no)" ]; then echo DIRTY; exit 0; fi`,
+    `git fetch --prune origin >/dev/null 2>&1 || { echo FETCH_FAILED; exit 0; }`,
+    `for b in ${branches}; do`,
+    `  git checkout -q -f -B "$b" origin/"$b" >/dev/null 2>&1 || { echo "CHECKOUT_FAILED $b"; break; }`,
+    `  if git ${KUMIKO_IDENTITY} merge --no-edit -q origin/${shQuote(sourceRef)} >/dev/null 2>&1; then`,
+    `    if git push -q origin "$b" >/dev/null 2>&1; then echo "OK $b"; else echo "PUSH_FAILED $b"; break; fi`,
+    `  else`,
+    `    echo "CONFLICT $b";`,
+    `    git diff --name-only --diff-filter=U;`,
+    `    git merge --abort >/dev/null 2>&1 || true;`,
+    `    ${restore}`,
+    `    exit 0;`,
+    `  fi`,
+    `done`,
+    restore,
+  ].join('\n');
+  const result = await sshExec(entry, script);
+  const lines = stdoutLines(result.stdout);
+  if (lines[0] === 'DIRTY') {
+    return { kind: 'error', updated: [], files: [], message: 'the remote workspace has uncommitted changes' };
+  }
+  const conflictLine = lines.find((line) => line.startsWith('CONFLICT '));
+  if (conflictLine) {
+    const conflictBranch = conflictLine.slice('CONFLICT '.length).trim();
+    const conflictIndex = lines.indexOf(conflictLine);
+    return { kind: 'conflict', updated: [], conflictBranch, files: lines.slice(conflictIndex + 1) };
+  }
+  const failed = lines.find((line) => line.startsWith('CHECKOUT_FAILED ') || line.startsWith('PUSH_FAILED ') || line === 'FETCH_FAILED');
+  if (failed) {
+    return { kind: 'error', updated: [], files: [], message: `the server failed to update a child branch (${failed})` };
+  }
+  const updated = lines.filter((line) => line.startsWith('OK ')).map((line) => line.slice(3));
+  return { kind: 'ok', updated, files: [] };
+}

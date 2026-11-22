@@ -1,6 +1,6 @@
 import { loadProjectConfig } from '../config.js';
 import { confirmForce } from '../confirm.js';
-import { branchDisplay, plural, requireProject, resolveServer } from '../context.js';
+import { branchDisplay, branchPathFor, branchRef, plural, requireProject, resolveServer } from '../context.js';
 import {
   gitCurrentBranch,
   gitDiffFileNames,
@@ -50,8 +50,7 @@ function parsePullArgs(args: string[]): PullOptions {
 
 /** Accept both the CLI display path (`/main/dev`) and the bare git branch (`dev`). */
 function branchNameFromArg(value: string): string {
-  const parts = value.split('/').filter((part) => part.length > 0);
-  return parts.length > 0 ? (parts[parts.length - 1] as string) : 'main';
+  return branchRef(value);
 }
 
 export const pullCommand: CommandDefinition = {
@@ -64,7 +63,8 @@ export const pullCommand: CommandDefinition = {
     const server = resolveServer(ctx, options.serverName);
     const project = requireProject(ctx);
 
-    if (!loadProjectConfig(project.path)) {
+    const projectConfig = loadProjectConfig(project.path);
+    if (!projectConfig) {
       ctx.repl.error(`no .kumiko.toml in '${project.name}'. run \`sync\` once to create it.`);
       return;
     }
@@ -74,8 +74,14 @@ export const pullCommand: CommandDefinition = {
       return;
     }
 
-    const localBranch = project.branch ?? gitCurrentBranch(project.path) ?? 'main';
-    const branch = options.branch ? branchNameFromArg(options.branch) : localBranch;
+    const currentRef = gitCurrentBranch(project.path);
+    const localDisplay = project.branch ?? (currentRef ? branchPathFor(projectConfig, currentRef) : 'main');
+    const branch = options.branch ? branchNameFromArg(options.branch) : branchRef(localDisplay);
+    const displayPath = options.branch ? branchPathFor(projectConfig, branch) : localDisplay;
+    if (options.branch && branch !== currentRef) {
+      ctx.repl.error(`switch to ${branchDisplay(displayPath)} before pulling it (current branch is '${currentRef ?? 'unknown'}').`);
+      return;
+    }
     const remoteBranch = await remoteWorktreeBranch(server.entry, project.name);
     if (remoteBranch && remoteBranch !== branch) {
       ctx.repl.error(
@@ -121,8 +127,8 @@ export const pullCommand: CommandDefinition = {
       }
     }
 
-    project.branch = branch;
+    project.branch = displayPath;
     project.configuredOnServer = true;
-    ctx.repl.say(`Done! Pull ${plural(files.length, 'file')} from ${project.name}:${branchDisplay(branch)}.`);
+    ctx.repl.say(`Done! Pull ${plural(files.length, 'file')} from ${project.name}:${branchDisplay(displayPath)}.`);
   },
 };

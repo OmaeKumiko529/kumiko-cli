@@ -1,5 +1,5 @@
 import type { CommandContext } from './commands/registry.js';
-import type { LocalProject, ServerEntry } from './types.js';
+import type { LocalProject, ProjectConfig, ServerEntry } from './types.js';
 
 export interface SelectedServer {
   name: string;
@@ -26,6 +26,38 @@ export function requireProject(ctx: CommandContext): LocalProject {
 
 export function branchDisplay(branch: string): string {
   return `/${branch}`;
+}
+
+/** The git ref behind a display path: `main/dev` -> `dev`. */
+export function branchRef(branchPath: string): string {
+  const parts = branchPath.split('/').filter((part) => part.length > 0);
+  return parts.length > 0 ? (parts[parts.length - 1] as string) : branchPath;
+}
+
+/** Walk the `[branches]` parent map: `dev` -> `main/dev`. */
+export function branchPathFor(config: ProjectConfig | null, ref: string): string {
+  if (!config?.branches) return ref;
+  const segments = [ref];
+  let current = ref;
+  for (let guard = 0; guard < 20; guard += 1) {
+    const parent = config.branches[current];
+    if (!parent) break;
+    segments.unshift(parent);
+    current = parent;
+  }
+  return segments.join('/');
+}
+
+/** Direct child branches of a ref, from the `[branches]` map. */
+export function childBranches(config: ProjectConfig | null, ref: string): string[] {
+  if (!config?.branches) return [];
+  return Object.entries(config.branches)
+    .filter(([, parent]) => parent === ref)
+    .map(([child]) => child);
+}
+
+export function syncChildrenEnabled(config: ProjectConfig | null): boolean {
+  return config?.branch?.syncChildren !== false;
 }
 
 export function plural(count: number, word: string): string {

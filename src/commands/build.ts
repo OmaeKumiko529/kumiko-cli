@@ -1,7 +1,7 @@
 import { rmSync } from 'node:fs';
 import path from 'node:path';
 import { loadProjectConfig } from '../config.js';
-import { requireProject, resolveServer } from '../context.js';
+import { branchPathFor, branchRef, requireProject, resolveServer } from '../context.js';
 import { gitCurrentBranch } from '../git.js';
 import { remoteHome, remoteWorktreeState, shQuote, updateRemoteWorktree } from '../remote.js';
 import { sftpDownloadDir, sshExec, sshExecStream } from '../ssh.js';
@@ -66,8 +66,8 @@ export const buildCommand: CommandDefinition = {
       ctx.repl.error(`no remote workspace for '${project.name}'. run \`sync\` first.`);
       return;
     }
-    const branch = project.branch ?? gitCurrentBranch(project.path) ?? 'main';
-    await updateRemoteWorktree(server.entry, project.name, branch);
+    const branch = project.branch ?? branchPathFor(projectConfig, gitCurrentBranch(project.path) ?? 'main');
+    await updateRemoteWorktree(server.entry, project.name, branchRef(branch));
 
     const remoteProject = `"$HOME/kumiko/projects/${project.name}"`;
     const result = await sshExecStream(server.entry, `cd ${remoteProject} && bash -lc ${shQuote(commandLine)}`, (chunk) =>

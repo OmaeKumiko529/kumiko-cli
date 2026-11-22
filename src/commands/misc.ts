@@ -64,12 +64,15 @@ export const helpCommand: CommandDefinition = {
       '  sync [commit] [-server <name>] [--force]      commit and push to the server',
       '  build [-server <name>] [-artifacts]           build on the server (pull dist with -artifacts)',
       '  pull [branch] [-server <name>] [--force]      pull server-side changes back home',
+      '  branch new /<parent>/<child>                  create a child branch (e.g. branch new /main/dev)',
+      '  branch merge <child> to <parent>              merge a child branch into its parent',
+      '  setting [<name> on|off]                       show or change project settings',
       '  logs [check <sha>]                            sync history / changed files',
       '  status                                        current context and state',
       '  help                                          this list',
       '  exit                                          quit',
       '',
-      'planned (request.md): new branch / dev',
+      'planned (request.md): dev',
     ]);
   },
 };

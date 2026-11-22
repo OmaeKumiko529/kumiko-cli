@@ -16,6 +16,9 @@ export interface ProjectConfig {
   run?: { command: string };
   build?: { command: string; artifacts?: string };
   test?: { command: string };
+  /** Branch tree: child branch ref -> parent branch ref. The main branch has no entry. */
+  branches?: Record<string, string>;
+  branch?: { syncChildren?: boolean };
 }
 
 export interface SyncRecord {
@@ -29,6 +32,7 @@ export interface SyncRecord {
 export interface LocalProject {
   name: string;
   path: string;
+  /** Display path of the current branch, e.g. `main` or `main/dev`. */
   branch?: string;
   configuredOnServer: boolean;
 }

@@ -8,6 +8,16 @@ import {
 } from '../config.js';
 import { confirmForce } from '../confirm.js';
 import {
+  branchDisplay,
+  branchPathFor,
+  branchRef,
+  childBranches,
+  plural,
+  resolveServer,
+  syncChildrenEnabled,
+  type SelectedServer,
+} from '../context.js';
+import {
   gitAddAllAndCommit,
   gitCurrentBranch,
   gitDirtyCount,
@@ -23,13 +33,17 @@ import {
   pushUrlFor,
   remoteHome,
   remoteWorktreeState,
+  serverPropagateChildren,
   sshCommandFor,
   updateRemoteWorktree,
   validateProjectName,
 } from '../remote.js';
-import { branchDisplay, plural, resolveServer, type SelectedServer } from '../context.js';
-import type { SyncRecord } from '../types.js';
+import type { ProjectConfig, SyncRecord } from '../types.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
+
+/** Shown when syncing a parent branch that has children. */
+const SYNC_CHILDREN_NOTICE =
+  'NOTICE By default running sync on a parent branch will cause the same sync content to be pushed to its child branches. To change this setting, use the kumiko setting.';
 
 interface SyncOptions {
   message?: string;
@@ -57,6 +71,10 @@ function parseSyncArgs(args: string[]): SyncOptions {
     }
   }
   return options;
+}
+
+function displayPathFor(config: ProjectConfig | null, ref: string): string {
+  return config ? branchPathFor(config, ref) : ref;
 }
 
 async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<void> {
@@ -126,18 +144,23 @@ async function createFlow(ctx: CommandContext, server: SelectedServer): Promise<
     repl.say('nothing to commit.');
     return;
   }
+  const displayPath = displayPathFor(loadProjectConfig(project.path), branch);
   const sha = gitAddAllAndCommit(project.path, 'Initial commit');
   const files = gitShowCommitFiles(project.path, sha).length;
   await ensureRemoteRepo(server.entry, name);
   const home = await remoteHome(server.entry);
-  gitPush(project.path, { url: pushUrlFor(server.entry, home, name), branch, sshCommand: sshCommandFor(server.entry) });
+  gitPush(project.path, {
+    url: pushUrlFor(server.entry, home, name),
+    branch: branchRef(displayPath),
+    sshCommand: sshCommandFor(server.entry),
+  });
   await ensureRemoteWorktree(server.entry, name);
-  await updateRemoteWorktree(server.entry, name, branch);
+  await updateRemoteWorktree(server.entry, name, branchRef(displayPath));
 
-  const record: SyncRecord = { message: 'Initial commit', sha, branch, time: new Date().toISOString(), files };
+  const record: SyncRecord = { message: 'Initial commit', sha, branch: displayPath, time: new Date().toISOString(), files };
   appendHistory(name, record);
   project.configuredOnServer = true;
-  project.branch = branch;
+  project.branch = displayPath;
   repl.setCommandPrefix('KUMIKOCLI');
   repl.say(`Done! Sync as 'Initial commit':${sha.slice(0, 8)}.`);
 }
@@ -149,7 +172,8 @@ async function syncFlow(ctx: CommandContext, server: SelectedServer, options: Sy
   const name = project.name;
   validateProjectName(name);
 
-  if (!loadProjectConfig(project.path)) {
+  const projectConfig = loadProjectConfig(project.path);
+  if (!projectConfig) {
     await createFlow(ctx, server);
     return;
   }
@@ -159,7 +183,19 @@ async function syncFlow(ctx: CommandContext, server: SelectedServer, options: Sy
     return;
   }
 
-  const branch = project.branch ?? gitCurrentBranch(project.path) ?? 'main';
+  const displayPath = project.branch ?? displayPathFor(projectConfig, gitCurrentBranch(project.path) ?? 'main');
+  const ref = branchRef(displayPath);
+  const children = childBranches(projectConfig, ref);
+  const propagate = children.length > 0 && syncChildrenEnabled(projectConfig);
+  if (propagate) {
+    repl.say(SYNC_CHILDREN_NOTICE);
+    const answer = (await repl.ask('Input branch name to sync: ')).trim();
+    if (answer !== ref) {
+      repl.say('cancelled.');
+      return;
+    }
+  }
+
   const dirty = gitDirtyCount(project.path) ?? 0;
   if (dirty === 0 && !options.force) {
     repl.say('nothing to sync: working tree is clean.');
@@ -180,7 +216,7 @@ async function syncFlow(ctx: CommandContext, server: SelectedServer, options: Sy
     return;
   }
   if (options.force) {
-    const confirmed = await confirmForce(repl, 'push', branch);
+    const confirmed = await confirmForce(repl, 'push', ref);
     if (!confirmed) {
       repl.say('cancelled.');
       return;
@@ -189,19 +225,34 @@ async function syncFlow(ctx: CommandContext, server: SelectedServer, options: Sy
 
   gitPush(project.path, {
     url: pushUrlFor(server.entry, home, name),
-    branch,
+    branch: ref,
     force: options.force,
     sshCommand: sshCommandFor(server.entry),
   });
   await ensureRemoteWorktree(server.entry, name);
-  await updateRemoteWorktree(server.entry, name, branch);
+  await updateRemoteWorktree(server.entry, name, ref);
 
-  const record: SyncRecord = { message, sha, branch, time: new Date().toISOString(), files };
+  const record: SyncRecord = { message, sha, branch: displayPath, time: new Date().toISOString(), files };
   appendHistory(name, record);
   project.configuredOnServer = true;
-  project.branch = branch;
+  project.branch = displayPath;
+
+  if (propagate) {
+    const result = await serverPropagateChildren(server.entry, name, ref, children, ref);
+    if (result.kind === 'conflict') {
+      repl.error(
+        `pushed to ${name}:${branchDisplay(displayPath)} but merging into ${displayPathFor(projectConfig, result.conflictBranch ?? '')} hit conflicts: ${result.files.join(', ')}. resolve them on the server and re-run \`branch merge\`.`,
+      );
+      return;
+    }
+    if (result.kind === 'error') {
+      repl.error(`pushed to ${name}:${branchDisplay(displayPath)} but the child branches were not updated: ${result.message}`);
+      return;
+    }
+  }
+
   repl.say(
-    `Done! Push ${plural(files, 'changed file')} to ${name}:${branchDisplay(branch)} as '${message}':${sha.slice(0, 8)}.`,
+    `Done! Push ${plural(files, 'changed file')} to ${name}:${branchDisplay(displayPath)}${propagate ? ' and its child branches' : ''} as '${message}':${sha.slice(0, 8)}.`,
   );
 }
 
@@ -215,10 +266,6 @@ export const syncCommand: CommandDefinition = {
     const server = resolveServer(ctx, options.serverName);
     if (!ctx.repl.state.project) {
       ctx.repl.error('no project selected. use `switch <project>[:branch]` first.');
-      return;
-    }
-    if (!loadProjectConfig(ctx.repl.state.project.path)) {
-      await createFlow(ctx, server);
       return;
     }
     await syncFlow(ctx, server, options);
