@@ -1,13 +1,14 @@
 import { createInterface, type Interface } from 'node:readline';
 import { hasActiveRun, stopActiveRun } from './commands/run.js';
 import { findCommand } from './commands/registry.js';
+import { changeDirectory, runNativeCommand, tokenize } from './shell.js';
 import type { GlobalConfig, SessionState } from './types.js';
 import { errorBadge, promptFor, visibleLength } from './ui.js';
 
 export class CommandCancelled extends Error {}
 
 export class Repl {
-  readonly state: SessionState = {};
+  readonly state: SessionState = { shell: { mode: 'terminal', cwd: '' } };
   private readonly rl: Interface;
   private pendingResolve: ((line: string) => void) | null = null;
   private pendingReject: ((err: unknown) => void) | null = null;
@@ -16,6 +17,9 @@ export class Repl {
   private commandPrefix: string | null = null;
   private readonly inputQueue: string[] = [];
   private pumpPromise: Promise<void> | null = null;
+  private streamActive = false;
+  private streamStarted = false;
+  private streamPartial = '';
 
   constructor(readonly config: GlobalConfig) {
     this.rl = createInterface({
@@ -51,6 +55,34 @@ export class Repl {
 
   error(message: string): void {
     this.say(`${errorBadge()} ${message}`);
+  }
+
+  /** Reset the streaming renderer used by native shell commands. */
+  beginStream(): void {
+    this.streamActive = true;
+    this.streamStarted = false;
+    this.streamPartial = '';
+  }
+
+  /** Append remote output, rendering the first line after the prompt and padding the rest. */
+  writeStream(chunk: string): void {
+    if (!this.streamActive) return;
+    this.streamPartial += chunk;
+    let newline = this.streamPartial.indexOf('\n');
+    while (newline >= 0) {
+      const line = this.streamPartial.slice(0, newline).replace(/\r$/, '');
+      this.streamPartial = this.streamPartial.slice(newline + 1);
+      this.writeStreamLine(line);
+      newline = this.streamPartial.indexOf('\n');
+    }
+  }
+
+  endStream(): void {
+    if (!this.streamActive) return;
+    if (this.streamPartial.length > 0) this.writeStreamLine(this.streamPartial.replace(/\r$/, ''));
+    this.streamActive = false;
+    this.streamStarted = false;
+    this.streamPartial = '';
   }
 
   setCommandPrefix(prefix: string | null): void {
@@ -102,6 +134,15 @@ export class Repl {
       // readline only renders prompts on TTY input; render manually for pipes
       // so scripted runs can observe where the CLI is waiting for input.
       process.stdout.write(text);
+    }
+  }
+
+  private writeStreamLine(line: string): void {
+    const prompt = this.promptString();
+    if (this.streamStarted) process.stdout.write(' '.repeat(visibleLength(prompt)) + line + '\n');
+    else {
+      process.stdout.write(prompt + line + '\n');
+      this.streamStarted = true;
     }
   }
 
@@ -167,16 +208,29 @@ export class Repl {
   private async execute(input: string): Promise<void> {
     this.running = true;
     try {
-      const tokens = input.split(/\s+/).filter(Boolean);
-      if (tokens[0]?.toLowerCase() === 'kumiko') tokens.shift();
-      if (tokens.length === 0) return;
-      const command = findCommand(tokens[0]);
-      if (!command) {
-        this.error(`unknown command '${tokens[0]}'. type 'help' for the command list.`);
+      // A leading `kumiko` is optional: `kumiko switch main` and `switch main`
+      // are the same command, and everything else falls through to the shell.
+      const raw = input.trim().replace(/^kumiko(?:\s+|$)/i, '');
+      if (!raw) return;
+      const tokens = tokenize(raw);
+      const first = tokens[0] ?? '';
+      if (!first) return;
+      const command = findCommand(first);
+      if (command) {
+        this.setCommandPrefix(command.promptPrefix ?? null);
+        await command.run({ repl: this, config: this.config, args: tokens.slice(1) });
         return;
       }
-      this.setCommandPrefix(command.promptPrefix ?? null);
-      await command.run({ repl: this, config: this.config, args: tokens.slice(1) });
+      if (first === 'cd') {
+        const args = tokens.slice(1);
+        if (args.length > 1) {
+          this.error('usage: cd [<path>]');
+          return;
+        }
+        await changeDirectory({ repl: this }, args[0] ?? '');
+        return;
+      }
+      await runNativeCommand({ repl: this }, raw);
     } catch (err) {
       if (err instanceof CommandCancelled) this.say('cancelled.');
       else this.error(err instanceof Error ? err.message : String(err));

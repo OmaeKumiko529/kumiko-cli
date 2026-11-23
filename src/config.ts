@@ -75,6 +75,7 @@ export function loadProjectConfig(dir: string): ProjectConfig | null {
   const build = data.build as Record<string, unknown> | undefined;
   const test = data.test as Record<string, unknown> | undefined;
   const branch = data.branch as Record<string, unknown> | undefined;
+  const settings = data.settings as Record<string, unknown> | undefined;
   const branches: Record<string, string> = {};
   for (const [child, parent] of Object.entries((data.branches ?? {}) as Record<string, unknown>)) {
     if (typeof parent === 'string') branches[child] = parent;
@@ -91,6 +92,7 @@ export function loadProjectConfig(dir: string): ProjectConfig | null {
     test: test?.command ? { command: String(test.command) } : undefined,
     branches: Object.keys(branches).length > 0 ? branches : undefined,
     branch: branch && typeof branch.syncChildren === 'boolean' ? { syncChildren: branch.syncChildren } : undefined,
+    settings: settings && typeof settings.commond === 'boolean' ? { commond: settings.commond } : undefined,
   };
 }
 
@@ -113,6 +115,9 @@ export function saveProjectConfig(dir: string, config: ProjectConfig): void {
   }
   if (config.branch && typeof config.branch.syncChildren === 'boolean') {
     lines.push('', '[branch]', `syncChildren = ${config.branch.syncChildren}`);
+  }
+  if (config.settings && typeof config.settings.commond === 'boolean') {
+    lines.push('', '[settings]', `commond = ${config.settings.commond}`);
   }
   writeFileSync(path.join(dir, '.kumiko.toml'), lines.join('\n') + '\n', 'utf8');
 }

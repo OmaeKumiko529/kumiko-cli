@@ -1,31 +1,10 @@
-# KUMIKO CLI
-Kumiko CLI是一个凭借git作为脚手架、通过在本地编写代码、上传到内网服务器进行编译调试的工具链。它通过命令行的方式被注册到IDE或服务器中，并通过一系列指令优化对于Agent的友好程度。
-
-## Quick Plan 概述
-Kumiko CLI将会有一下几个基础指令：
-```Bash
-# 同步本地代码到服务器
-kumiko sync [commit] [-server]
-
-# 通过所配置的方式构建当前项目
-kumiko build [-serverName]
-
-# 拉取服务器分支上的云端代码到本地
-kumiko pull [branch]
-
-# 查看日志
-kumiko logs
-```
-
-`-server`参数接受不同于当前选中的服务器。需要事先通过`kumiko server create`创建。你可以通过下列示例来了解基本的用法：
-
 ```Bash
 KUMIKOCLI $> kumiko server create
 SERVER $> serverName: personalServer2
 SERVER $> ssh: testuser@192.168.0.2
 SERVER $> password: ******
 SERVER $> test ssh in 192.168.0.2 of testuser...
-SERVER $> Done! use `server list` to check your new server.
+SERVER $> DONE use `server list` to check your new server.
 KUMIKOCLI $> kumiko server list
 SERVER $> personalServer:testuser@192.168.0.1
           personalServer2:testuser@192.168.0.2
@@ -50,19 +29,19 @@ SYNC personalServer $> c
 SYNC personalServer $> solutionName: Vue
 SYNC personalServer $> Configure `kumiko run`: npm run
 SYNC personalServer $> Configure `kumiko build`: npm build
-SYNC personalServer $> Done! You can modify additional configuration options in *kumikocli/sol/vue.sol
+SYNC personalServer $> DONE You can modify additional configuration options in *kumikocli/sol/vue.sol
 
 SYNC personalServer $> Write .kumiko.toml at *testProject/
 SYNC personalServer $> No Git configuration. Create repository as 'testProject'.
 SYNC personalServer $> Initialize a main branch? [y/n]
 SYNC personalServer $> y
 
-KUMIKOCLI personalServer testProject:/main $> Done! Sync as 'Initial commit':1a2b3c4d.
+KUMIKOCLI personalServer testProject:/main $> DONE Sync as 'Initial commit':1a2b3c4d.
 KUMIKOCLI personalServer testProject:/main $> kumiko build
-KUMIKOCLI personalServer testProject:/main $> Done! Build at @/dist remotely.
+KUMIKOCLI personalServer testProject:/main $> DONE Build at @/dist remotely.
 # 改动部分文件后
 KUMIKOCLI personalServer testProject:/main $> kumiko sync testsync
-SYNC personalServer testProject:/main $> Done! Push 3 changed files to testProject:/main as 'testsync':1a2b3c4d.
+SYNC personalServer testProject:/main $> DONE Push 3 changed files to testProject:/main as 'testsync':1a2b3c4d.
 KUMIKOCLI personalServer testProject:/main $> kumiko logs
 LOGS personalServer testProject $> LOGS
                                    'testsync':1a2b3c4d
@@ -76,29 +55,60 @@ LOGS personalServer testProject $> LOGS
                                     └─ Engine
                                        └─ storyEngine.ts
 KUMIKOCLI personalServer testProject:/main $> kumiko build -artifacts
-KUMIKOCLI personalServer testProject:/main $> Done! Build at *@/dist locally.
+KUMIKOCLI personalServer testProject:/main $> DONE Build at *@/dist locally.
 # 改动部分文件后
 KUMIKOCLI personalServer testProject:/main $> kumiko branch new /main/dev
-KUMIKOCLI personalServer testProject:/main $> Done! New branch /main/dev
+KUMIKOCLI personalServer testProject:/main $> DONE New branch /main/dev
 KUMIKOCLI personalServer testProject:/main $> kumiko switch testProject:/main/dev --carry
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko sync devInitial
-SYNC personalServer testProject:/main/dev $> Done! Push 2 changed files to testProject:/main/dev as 'devInitial':1a2b3c4d.
+SYNC personalServer testProject:/main/dev $> DONE Push 2 changed files to testProject:/main/dev as 'devInitial':1a2b3c4d.
 # 误删部分文件后
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko pull --force
 PULL personalServer testProject:/main/dev $> WARNING --force will pull all files and OVERWRITE your current local workspace. Input branch name to OVERWRITE: dev
-PULL personalServer testProject:/main/dev $> Done! Pull 325 files from testProject:/main/dev.
+PULL personalServer testProject:/main/dev $> DONE Pull 325 files from testProject:/main/dev.
 # 改动部分文件后
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko sync testpush --force
 SYNC personalServer testProject:/main/dev $> WARNING --force will push all files and OVERWRITE your current branch. Input branch name to OVERWRITE: dev
-SYNC personalServer testProject:/main/dev $> Done! Push 325 files to testProject:/main/dev as 'testpush':1a2b3c4d.
+SYNC personalServer testProject:/main/dev $> DONE Push 325 files to testProject:/main/dev as 'testpush':1a2b3c4d.
 
 # 子分支与父分支特性与合并演示
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko branch merge /main/dev to /main
-BRANCH personalServer testProject:/main/dev $> Done! /main/dev merged with /main.
+BRANCH personalServer testProject:/main/dev $> DONE /main/dev merged with /main.
 
 KUMIKOCLI personalServer testProject:/main/dev $> kumiko switch testProject:/main
 # 改动部分文件后
 KUMIKOCLI personalServer testProject:/main $> kumiko sync
-SYNC personalServer testProject:/main $> NOTICE By default running sync on a parent branch will cause the same sync content to be pushed to its child branches. To change this setting, use the kumiko setting.Input branch name to sync: main
-SYNC personalServer testProject:/main $> Done! Push 2 changed files to testProject:/main and its child branches as 'test114514':1a2b3c4d.
+SYNC personalServer testProject:/main $> NOTICE By default running sync on a parent branch will cause the same sync content to be pushed to its child branches. To change this setting, use the kumiko setting commond. Input branch name to sync: main
+SYNC personalServer testProject:/main $> DONE Push 2 changed files to testProject:/main and its child branches as 'test114514':1a2b3c4d.
+
+# 常态命令行，接受默认linux命令
+KUMIKOCLI personalServer testProject:/main $> cd src
+KUMIKOCLI personalServer testProject:/main $> ERROR cd command cannot be used when a workspace and branch have been specified. # 无法在工作区指定终端工作目录，除非工作区为空。
+
+KUMIKOCLI personalServer testProject:/main $> ls # 如果在工作区使用linux命令，就会默认终端工作目录位于工作区根目录
+LINUX personalServer testProject:/main $> [*] testProject
+                                           ├── readme.md
+                                           ├── node_modules
+                                           ├── package.json
+                                           ├── src
+                                           └── .git
+KUMIKOCLI personalServer testProject:/main $> kumiko switch / # 回到空工作区
+KUMIKOCLI personalServer $> ls # 使用linux命令
+LINUX personalServer $> [/]
+                         ├── mc-server
+                         ├── node_modules
+                         ├── package.json
+                         └── projects
+KUMIKOCLI personalServer $> cd mc-server # 此时就可以指定新的终端工作目录了
+KUMIKOCLI personalServer /mc-server $> git -v #也可以使用经过PATH配置的CIL
+GIT personalServer $> git version 2.53.0
+KUMIKOCLI personalServer /mc-server $> kumiko switch testProject:/main
+KUMIKOCLI personalServer testProject:/main $> kumiko switch current -terminal #可以快捷切换到当前工作区的根目录，方便你使用接近原生终端的方式读写
+KUMIKOCLI personalServer /projects/testProject $> git -v
+GIT personalServer $> git version 2.53.0
+KUMIKOCLI personalServer /projects/testProject $> NOTICE A kumiko config include in repo. You can use kumiko commond to quickly get more efficient Git experience. To close this notice, use the kumiko setting commond.
+KUMIKOCLI personalServer /projects/testProject $> kumiko switch current -kumiko
+KUMIKOCLI personalServer testProject:/main $> git push # 同样可以使用原生git指令
+GIT personalServer testProject:/main $> Everything up-to-date.
+GIT personalServer testProject:/main $> NOTICE A kumiko config include in repo. You can use kumiko commond to quickly get more efficient Git experience. To close this notice, use the kumiko setting commond.
 ```

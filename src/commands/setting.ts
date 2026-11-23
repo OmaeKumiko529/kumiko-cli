@@ -11,6 +11,8 @@ function parseToggle(value: string | undefined): boolean | undefined {
   return undefined;
 }
 
+const SETTINGS = ['syncChildren', 'commond'] as const;
+
 export const settingCommand: CommandDefinition = {
   name: 'setting',
   usage: 'setting [<name> on|off]',
@@ -26,25 +28,34 @@ export const settingCommand: CommandDefinition = {
 
     const [key, value] = ctx.args;
     if (!key) {
-      const stored = config.branch?.syncChildren;
+      const syncChildren = config.branch?.syncChildren;
+      const commond = config.settings?.commond;
       ctx.repl.sayLines([
         'settings:',
-        `  syncChildren  ${stored === false ? 'off' : 'on'}${stored === undefined ? '  (default)' : ''}`,
+        `  syncChildren  ${syncChildren === false ? 'off' : 'on'}${syncChildren === undefined ? '  (default)' : ''}`,
+        `  commond       ${commond === false ? 'off' : 'on'}${commond === undefined ? '  (default)' : ''}`,
         '',
-        'change with: setting syncChildren on|off',
+        'syncChildren: push a parent sync to its child branches by default.',
+        'commond:      show the "kumiko config in repo" notice for native git commands.',
+        '',
+        'change with: setting <name> on|off',
       ]);
       return;
     }
-    if (key !== 'syncChildren') {
-      ctx.repl.error(`unknown setting '${key}'. available: syncChildren`);
+    if (!SETTINGS.includes(key as (typeof SETTINGS)[number])) {
+      ctx.repl.error(`unknown setting '${key}'. available: ${SETTINGS.join(', ')}`);
       return;
     }
     const parsed = parseToggle(value);
     if (parsed === undefined) {
-      ctx.repl.error('usage: setting syncChildren on|off');
+      ctx.repl.error(`usage: setting ${key} on|off`);
       return;
     }
-    saveProjectConfig(project.path, { ...config, branch: { ...(config.branch ?? {}), syncChildren: parsed } });
-    ctx.repl.say(`${successBadge()} syncChildren is now ${parsed ? 'on' : 'off'}.`);
+    if (key === 'syncChildren') {
+      saveProjectConfig(project.path, { ...config, branch: { ...(config.branch ?? {}), syncChildren: parsed } });
+    } else {
+      saveProjectConfig(project.path, { ...config, settings: { ...(config.settings ?? {}), commond: parsed } });
+    }
+    ctx.repl.say(`${successBadge()} ${key} is now ${parsed ? 'on' : 'off'}.`);
   },
 };

@@ -2,6 +2,7 @@ import type { Repl } from '../repl.js';
 import type { GlobalConfig } from '../types.js';
 import { branchCommand } from './branch.js';
 import { buildCommand } from './build.js';
+import { commondCommand } from './commond.js';
 import { logsCommand } from './logs.js';
 import { pullCommand } from './pull.js';
 import { runCommand } from './run.js';
@@ -35,6 +36,7 @@ export const commands: CommandDefinition[] = [
   runCommand,
   branchCommand,
   settingCommand,
+  commondCommand,
   logsCommand,
   statusCommand,
   versionCommand,

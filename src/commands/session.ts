@@ -3,6 +3,7 @@ import path from 'node:path';
 import { loadKnownProjects, loadProjectConfig, rememberProject } from '../config.js';
 import { branchDisplay, branchPathFor, branchRef, normalizeBranchPath } from '../context.js';
 import { gitBranchExists, gitCheckout, gitCurrentBranch, gitDirtyFiles } from '../git.js';
+import { workspaceCwd } from '../shell.js';
 import { sshExec } from '../ssh.js';
 import type { LocalProject, ProjectConfig } from '../types.js';
 import type { CommandContext, CommandDefinition } from './registry.js';
@@ -134,24 +135,62 @@ export const connectCommand: CommandDefinition = {
 
 export const switchCommand: CommandDefinition = {
   name: 'switch',
-  usage: 'switch <project|path|branch>[:branch] [--carry]',
-  summary: 'switch the current project workspace or branch',
+  usage: 'switch <project|path|branch>[:branch] | switch / | switch current -terminal|-kumiko [--carry]',
+  summary: 'switch the current workspace or branch, or move the native shell',
   promptPrefix: 'KUMIKOCLI',
   async run(ctx: CommandContext): Promise<void> {
     const positional: string[] = [];
     let carry = false;
+    let terminal = false;
+    let kumiko = false;
     for (const arg of ctx.args) {
       if (arg === '--carry') carry = true;
+      else if (arg === '-terminal' || arg === '--terminal') terminal = true;
+      else if (arg === '-kumiko' || arg === '--kumiko') kumiko = true;
       else if (arg.startsWith('-')) throw new Error(`unknown switch option '${arg}'`);
       else positional.push(arg);
     }
     const raw = positional[0];
     if (!raw) {
-      ctx.repl.error('usage: switch <project|path|branch>[:branch] [--carry]');
+      ctx.repl.error('usage: switch <project|path|branch>[:branch] | switch / | switch current -terminal|-kumiko');
       return;
     }
 
     const current = ctx.repl.state.project;
+
+    // `switch /` clears the workspace and drops the shell back to the root.
+    if (raw === '/') {
+      ctx.repl.state.project = undefined;
+      ctx.repl.state.shell = { mode: 'terminal', cwd: '' };
+      return;
+    }
+
+    // `switch current` re-attaches to the selected workspace; the flags move the
+    // native shell between the workspace root and a free terminal cwd.
+    if (raw === 'current' || terminal || kumiko) {
+      if (terminal && kumiko) {
+        ctx.repl.error('switch current: use either -terminal or -kumiko.');
+        return;
+      }
+      if (raw !== 'current') {
+        ctx.repl.error('switch -terminal/-kumiko only applies to `switch current`.');
+        return;
+      }
+      if (!current) {
+        ctx.repl.error('no project is selected. usage: switch <project>[:branch]');
+        return;
+      }
+      if (terminal && ctx.repl.state.server && !current.configuredOnServer) {
+        ctx.repl.error(`the workspace '${current.name}' is not on the server yet. run \`sync\` first.`);
+        return;
+      }
+      ctx.repl.state.shell = {
+        mode: terminal ? 'terminal' : 'kumiko',
+        cwd: workspaceCwd(current.name),
+      };
+      return;
+    }
+
     const branchOnly = /^[:/\\]/.test(raw);
     const parsed = branchOnly ? { project: '', branch: raw.replace(/^[:/\\]+/, '') } : splitProjectArg(raw);
     const normalizedBranch = parsed.branch === undefined ? undefined : normalizeBranchPath(parsed.branch);
@@ -263,6 +302,7 @@ export const switchCommand: CommandDefinition = {
       configuredOnServer = Boolean(projectConfig) && exists;
     }
     ctx.repl.state.project = { name, path: target, branch: displayPath, configuredOnServer };
+    ctx.repl.state.shell = { mode: 'kumiko', cwd: workspaceCwd(name) };
 
     rememberProject(name, target);
     const basename = path.basename(target);

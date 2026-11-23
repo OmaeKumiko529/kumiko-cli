@@ -58,7 +58,32 @@ KUMIKOCLI home deepseek-sage-client:/main
 ```Bash
 KUMIKOCLI [server] [project]:[branch]
 ```
+终端模式下（`switch current -terminal`）则显示为 `KUMIKOCLI [server] /[cwd]`；执行原生命令时，
+首个参数会变成命令前缀，例如 `GIT [server] [project]:[branch]`。
 
 进入到这一步，第一个库的配置就基本完成了。你可以查阅`kumiko help`来继续查看高级操作。
 
 现在直接`sync`并`run`就可以通过remote的方式调试项目了。
+
+### 常态命令行
+KUMIKO CLI 内置了一个远端 shell：无法匹配 kumiko 命令的输入会被当成普通的 Linux 命令，
+在已连接服务器的 `$HOME/kumiko` 下执行。命令前缀会显示成对应的工具名（`GIT`、`NPM`、`LINUX`……），
+工作区、分支和当前目录都会出现在 `Prompt` 里：
+
+```Bash
+KUMIKOCLI home testProject:/main $> ls
+LINUX home testProject:/main $> [*] testProject
+                                ├── .git
+                                ├── .kumiko.toml
+                                ├── package.json
+                                └── src
+```
+
+- 选中工作区与分支时，命令固定在工作区根目录执行，`cd` 会被禁用；
+- `switch /` 回到空工作区，之后可以用 `cd` 自由浏览 `$HOME/kumiko`（`/projects`、`/logs`、`/repos`、`/run`）；
+- `switch current -terminal` 把终端挂到当前工作区根目录（`/projects/<name>`），
+  `switch current -kumiko` 再切回工作区模式；
+- kumiko 配置存在于仓库中时，执行 `git` 命令会提示 `commond`；可用 `commond status|log|diff|add|commit|push|pull`
+  执行常用 git 操作，或 `setting commond off` 关闭提示。
+
+细节与设计权衡见 [docs/terminal-mode.md](docs/terminal-mode.md)。

@@ -43,14 +43,22 @@ export function errorBadge(): string {
 export function contextFragment(state: SessionState): string {
   const parts: string[] = [];
   if (state.server) parts.push(pc.cyan(state.server.name));
+  const shell = state.shell;
   const project = state.project;
-  if (project) {
+  const terminalMode = shell?.mode === 'terminal';
+  const terminalCwd = shell?.mode === 'terminal' ? shell.cwd : '';
+  // A free terminal cwd replaces the workspace fragment: after
+  // `switch current -terminal` the prompt shows `/projects/<name>` instead of
+  // `name:/branch`, so it is obvious where native commands will run.
+  if (project && !terminalMode) {
     if (project.configuredOnServer) {
       const branch = project.branch ? pc.magenta(`:/${project.branch}`) : '';
       parts.push(pc.green(project.name) + branch);
     } else {
       parts.push(pc.yellow(`*${project.name}`));
     }
+  } else if (terminalCwd) {
+    parts.push(pc.cyan(`/${terminalCwd}`));
   }
   return parts.join(' ');
 }

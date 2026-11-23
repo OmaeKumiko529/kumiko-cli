@@ -1,5 +1,6 @@
 import { loadProjectConfig } from '../config.js';
 import { gitDirtyCount } from '../git.js';
+import { displayCwd, shellState } from '../shell.js';
 import { sshExec } from '../ssh.js';
 import { VERSION } from '../version.js';
 import { activeRunSummary, stopActiveRun } from './run.js';
@@ -18,6 +19,8 @@ export const statusCommand: CommandDefinition = {
         ? `server   ${state.server.name}  ${state.server.entry.user}@${state.server.entry.host}`
         : 'server   (not connected)',
     );
+    const shell = shellState(state);
+    lines.push(`shell    ${shell.mode}  ${displayCwd(shell.cwd)}`);
     if (!state.project) {
       lines.push('project  (none)');
       ctx.repl.sayLines(lines);
@@ -76,6 +79,8 @@ export const helpCommand: CommandDefinition = {
       '  server key <name> [identity]                  attach an ssh key to an existing server',
       '  connect <server>                              connect to a server',
       '  switch <project>[:branch]                     switch project workspace',
+      '  switch /                                      clear the workspace, back to the shell root',
+      '  switch current -terminal|-kumiko               detach/attach the shell from the current workspace',
       '  sync [commit] [-server <name>] [--force]      commit and push to the server',
       '  build [-server <name>] [-artifacts]           build on the server (pull dist with -artifacts)',
       '  pull [branch] [-server <name>] [--force]      pull server-side changes back home',
@@ -84,11 +89,16 @@ export const helpCommand: CommandDefinition = {
       '  branch new /<parent>/<child>                  create a child branch (e.g. branch new /main/dev)',
       '  branch merge <child> to <parent>              merge a child branch into its parent',
       '  setting [<name> on|off]                       show or change project settings',
+      '  commond [status|log|diff|add|commit|push]     common git commands through the native shell',
       '  logs [check <sha>]                            sync history / changed files',
       '  status                                        current context and state',
       '  version                                       print the kumiko version',
       '  help                                          this list',
       '  exit                                          quit',
+      '',
+      'shell:',
+      '  anything else runs on the server from the shell cwd (ls, git, npm, ...).',
+      '  `cd <path>` moves the shell; it is pinned while a workspace+branch is selected.',
     ]);
   },
 };
